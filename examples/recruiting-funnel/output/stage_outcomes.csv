@@ -1,0 +1,6 @@
+stage,outcome,application_count
+screened,candidate_withdrew,1
+screened,rejected,1
+assessed,rejected,1
+interviewed,rejected,1
+offered,offer_declined,1

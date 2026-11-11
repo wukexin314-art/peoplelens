@@ -1,0 +1,4 @@
+metric_name,value,numerator,denominator,as_of_date
+application_to_start_yield,0.3333,4,12,2026-03-31
+interview_to_offer_yield,0.7500,6,8,2026-03-31
+offer_to_acceptance_yield,0.6667,4,6,2026-03-31

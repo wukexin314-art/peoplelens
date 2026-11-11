@@ -1,0 +1,4 @@
+metric_name,metric_type,population,numerator,denominator,desired_direction,known_limitations
+application_to_start_yield,stage_yield,Applications reaching applied,Distinct applications reaching started,Distinct applications reaching applied,higher,Requires complete stage history and a mature observation window.
+interview_to_offer_yield,stage_yield,Applications reaching interviewed,Distinct applications reaching offered,Distinct applications reaching interviewed,contextual,Requires complete stage history and a mature observation window.
+offer_to_acceptance_yield,stage_yield,Applications reaching offered,Distinct applications reaching accepted,Distinct applications reaching offered,higher,Requires complete stage history and a mature observation window.

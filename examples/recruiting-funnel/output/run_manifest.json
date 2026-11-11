@@ -1,0 +1,28 @@
+{
+  "source_file": "applications.csv",
+  "as_of_date": "2026-03-31",
+  "source_rows": 55,
+  "valid_event_rows": 55,
+  "distinct_applications": 12,
+  "stage_order": [
+    "applied",
+    "screened",
+    "assessed",
+    "interviewed",
+    "offered",
+    "accepted",
+    "started"
+  ],
+  "generated_at_utc": "2026-11-11T15:00:10.557403+00:00",
+  "output_files": [
+    "funnel_summary.csv",
+    "stage_outcomes.csv",
+    "backlog_aging.csv",
+    "segment_summary.csv",
+    "configured_metrics.csv",
+    "metric_dictionary.csv",
+    "data_quality.csv",
+    "analysis_summary.md",
+    "run_manifest.json"
+  ]
+}

@@ -1,0 +1,6 @@
+segment,value,application_count,started_count,application_to_start_rate
+business_unit,Operations,6,2,0.3333
+business_unit,Technology,6,2,0.3333
+source,Agency,3,0,0.0000
+source,Direct,5,3,0.6000
+source,Referral,4,1,0.2500

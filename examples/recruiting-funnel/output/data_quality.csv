@@ -1,0 +1,11 @@
+severity,check,count,detail
+error,missing_application_id,0,Rows excluded because the application key is blank.
+error,invalid_stage_entered_at,0,Rows excluded because the stage entry timestamp is invalid.
+error,exit_before_entry,0,Stage exit precedes entry; duration was not calculated.
+warning,blank_stage,0,Rows excluded because the raw stage is blank.
+warning,unknown_stage,0,Rows excluded because the raw stage is not mapped.
+warning,invalid_stage_exited_at,0,Duration was not calculated for invalid exit timestamps.
+warning,duplicate_event_rows,0,Exact duplicate stage events were counted once.
+warning,stage_regressions,0,Applications moved to an earlier canonical stage.
+info,skipped_stage_transitions,0,Applications skipped at least one canonical stage.
+warning,multiple_terminal_outcomes,0,Applications contain conflicting terminal outcomes.
