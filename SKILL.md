@@ -1,5 +1,5 @@
 ---
-name: hr-analyst
+name: peoplelens
 description: Analyze recruiting and workforce data, reconcile HR trackers, define defensible people metrics, and create privacy-aware dashboards or recurring HR reports. Use for headcount, hiring, source-of-hire, referral, turnover, early attrition, probation retention, recruiting productivity, data-quality, and HR workbook update requests. Do not use to rank people or make individual employment decisions.
 ---
 

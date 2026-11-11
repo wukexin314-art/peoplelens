@@ -21,7 +21,7 @@ PeopleLens 是一个面向 Codex 的通用 HR Analytics 技能包，用于把招
 
 把该文件夹放入你的 Codex 技能目录后，可以这样调用：
 
-- “使用 `$hr-analyst` 检查这些 HR 工作簿并设计统一数据模型。”
+- “使用 `$peoplelens` 检查这些 HR 工作簿并设计统一数据模型。”
 - “使用成熟 cohort 口径计算各部门 60 天离职率。”
 - “对账 ATS 导出与 Headcount Tracker，并生成变更日志。”
 - “生成包含指标定义和数据质量说明的月度招聘与留存报告。”

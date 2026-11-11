@@ -21,7 +21,7 @@ The skill is designed for aggregate analysis. It does **not** rank candidates or
 
 ## Use
 
-Place this folder in a location your Codex setup uses for skills, then invoke `$hr-analyst` with a request such as:
+Place this folder in a location your Codex setup uses for skills, then invoke `$peoplelens` with a request such as:
 
 - “Audit these HR workbooks and propose a canonical data model.”
 - “Calculate 60-day attrition by business unit using mature cohorts.”
