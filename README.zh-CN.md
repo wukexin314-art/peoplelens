@@ -30,6 +30,22 @@ PeopleLens 是一个面向 Codex 的通用 HR Analytics 技能包，用于把招
 - “对账 ATS 导出与 Headcount Tracker，并生成变更日志。”
 - “生成包含指标定义和数据质量说明的月度招聘与留存报告。”
 
+## 可执行招聘漏斗
+
+PeopleLens 现在包含一个零第三方依赖的 ATS 阶段事件分析器：
+
+```bash
+python3 scripts/analyze_recruiting_funnel.py \
+  examples/recruiting-funnel/applications.csv \
+  --config configs/recruiting-funnel.example.yaml \
+  --mapping configs/mappings/canonical-event-history.yaml \
+  --output-dir /tmp/peoplelens-output
+```
+
+它会生成阶段转化、累计转化、终止结果、阶段耗时、当前积压、Aging、分群结果、配置化指标、指标字典、自动数据质量报告和运行清单。仓库包含合成数据与标准输出，可直接复现。
+
+配置采用 JSON-compatible YAML，无需安装额外 Python 包。字段映射文件只是起点，使用真实 ATS 导出前必须确认字段与阶段映射。
+
 ## 本地数据体检
 
 `scripts/profile_hr_data.py` 可以检查字段结构、缺失率、重复 ID、日期解析和潜在敏感字段，并且不会打印原始单元格值：

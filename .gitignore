@@ -9,3 +9,5 @@ outputs/
 reports/
 
 !assets/*.csv
+!examples/recruiting-funnel/applications.csv
+!examples/recruiting-funnel/output/*.csv
