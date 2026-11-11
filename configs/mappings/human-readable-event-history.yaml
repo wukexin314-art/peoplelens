@@ -1,0 +1,16 @@
+{
+  "input_grain": "application_stage_event",
+  "columns": {
+    "application_id": "Application ID",
+    "candidate_id": "Candidate ID",
+    "requisition_id": "Requisition ID",
+    "business_unit": "Business Unit",
+    "job_level": "Job Level",
+    "source": "Source",
+    "recruiter": "Recruiter",
+    "stage": "Stage",
+    "stage_entered_at": "Stage Entered At",
+    "stage_exited_at": "Stage Exited At",
+    "stage_outcome": "Stage Outcome"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "input_grain": "application_stage_event",
+  "columns": {
+    "application_id": "Application ID",
+    "candidate_id": "Candidate ID",
+    "requisition_id": "Job ID",
+    "business_unit": "Department",
+    "job_level": "Grade",
+    "source": "Application Source",
+    "recruiter": "Recruiting Owner",
+    "stage": "Status",
+    "stage_entered_at": "Status Start",
+    "stage_exited_at": "Status End",
+    "stage_outcome": "Disposition"
+  },
+  "stage_mapping": {
+    "New Application": "applied",
+    "Recruiter Review": "screened",
+    "Assessment": "assessed",
+    "Interview": "interviewed",
+    "Offer": "offered",
+    "Offer Accepted": "accepted",
+    "Hired": "started"
+  }
+}
