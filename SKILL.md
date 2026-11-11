@@ -1,6 +1,6 @@
 ---
 name: peoplelens
-description: Analyze recruiting and workforce data, reconcile HR trackers, define defensible people metrics, and create privacy-aware dashboards or recurring HR reports. Use for headcount, hiring, source-of-hire, referral, turnover, early attrition, probation retention, recruiting productivity, data-quality, and HR workbook update requests. Do not use to rank people or make individual employment decisions.
+description: Analyze recruiting and workforce data, reconcile HR trackers, define defensible people metrics, and create privacy-aware dashboards or recurring HR reports. Use for recruiting funnels, requisitions, sourcing, offers, hiring efficiency, headcount, mobility, turnover, retention, workforce planning, data-quality, and HR workbook update requests. Do not use to rank people or make individual employment decisions.
 ---
 
 # PeopleLens HR Analyst
@@ -11,10 +11,13 @@ Turn HR data into an auditable, decision-ready analysis. Preserve the user's bus
 
 - For dataset inspection or field mapping, read [references/data-contract.md](references/data-contract.md). Run `scripts/profile_hr_data.py` when a local CSV, TSV, or XLSX needs a privacy-preserving structural audit.
 - For KPI calculation, cohort design, or metric review, read [references/metrics.md](references/metrics.md).
+- For recruiting funnel, stage conversion, stage aging, drop-off, or time-in-stage analysis, also read [references/recruiting-funnel.md](references/recruiting-funnel.md).
 - For dashboards, monthly reports, charts, findings, or executive summaries, read [references/reporting.md](references/reporting.md).
 - For row-level data, demographic cuts, small cohorts, or publication outside the organization, read [references/privacy.md](references/privacy.md).
 
-Use only the references relevant to the request. For an end-to-end report, read all four.
+Use only the references relevant to the request. For an end-to-end recruiting and workforce report, read all relevant references.
+
+The metric catalog is a starting point, not a closed list. When the user requests a metric that is not documented, define it with the same metric contract, confirm or surface material assumptions, and add it to the output metric dictionary. Prefer the user's established policy over a generic formula.
 
 ## Work from a metric contract
 
@@ -26,6 +29,7 @@ Before calculating a KPI, establish or infer the following and surface material 
 4. Deduplication key and source-of-truth precedence.
 5. Numerator, denominator, cohort maturity rule, and treatment of zero denominators.
 6. Segments, targets, and privacy threshold.
+7. Whether the measure is a stock, flow, cohort, duration, rate, or currency metric, and the comparison direction that represents improvement.
 
 Do not silently mix event-based and snapshot-based data. Do not label a cohort rate as workforce turnover if its denominator is hires rather than average headcount.
 

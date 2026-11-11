@@ -8,8 +8,11 @@ PeopleLens 是一个面向 Codex 的通用 HR Analytics 技能包，用于把招
 
 - Headcount 与员工流动分析
 - 招聘目标、完成率与时间进度
+- 招聘漏斗转化、阶段流失、阶段耗时与积压
+- 职位 Aging、Time to Fill、Time to Hire 与招聘 SLA
 - 招聘来源、内推趋势和 Offer 状态
 - Turnover、60 天早期离职与试用期留存
+- 内部流动、晋升、人员结构、FTE 与编制差异
 - 按部门、职级、来源和 Recruiter 分析
 - ATS 导出与 Headcount Tracker 对账
 - 月报、看板、指标字典和变更日志
@@ -23,6 +26,7 @@ PeopleLens 是一个面向 Codex 的通用 HR Analytics 技能包，用于把招
 
 - “使用 `$peoplelens` 检查这些 HR 工作簿并设计统一数据模型。”
 - “使用成熟 cohort 口径计算各部门 60 天离职率。”
+- “按招聘 cohort 分析从申请到入职的漏斗转化、流失和阶段耗时。”
 - “对账 ATS 导出与 Headcount Tracker，并生成变更日志。”
 - “生成包含指标定义和数据质量说明的月度招聘与留存报告。”
 

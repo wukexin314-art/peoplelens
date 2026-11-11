@@ -10,9 +10,12 @@ It turns recurring HR workflows into a consistent analysis method: inspect and r
 
 - Headcount and workforce movement
 - Hiring targets and completion pacing
+- Recruiting funnel conversion, drop-off, stage aging, and backlog
+- Requisition aging, time to fill, time to hire, and recruiting SLA
 - Source-of-hire and referral trends
 - Offer and requisition status normalization
 - Turnover, 60-day early attrition, and probation retention
+- Internal mobility, promotions, workforce mix, FTE, and plan variance
 - Business-unit, level, source, and recruiter breakdowns
 - Workbook reconciliation with before/after change logs
 - Data-quality, privacy, and small-cell checks
@@ -25,6 +28,7 @@ Place this folder in a location your Codex setup uses for skills, then invoke `$
 
 - “Audit these HR workbooks and propose a canonical data model.”
 - “Calculate 60-day attrition by business unit using mature cohorts.”
+- “Analyze application-to-start funnel conversion, drop-off, and time in stage by hiring cohort.”
 - “Reconcile this ATS export with the headcount tracker and create a change log.”
 - “Build a monthly hiring and retention report with definitions and QA notes.”
 
@@ -51,6 +55,7 @@ CSV and TSV use only the Python standard library. XLSX support requires `openpyx
 |-- references/
 |   |-- data-contract.md
 |   |-- metrics.md
+|   |-- recruiting-funnel.md
 |   |-- privacy.md
 |   `-- reporting.md
 `-- assets/
