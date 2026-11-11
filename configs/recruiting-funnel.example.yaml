@@ -1,0 +1,54 @@
+{
+  "as_of_date": "2026-03-31",
+  "stage_order": [
+    "applied",
+    "screened",
+    "assessed",
+    "interviewed",
+    "offered",
+    "accepted",
+    "started"
+  ],
+  "stage_mapping": {
+    "Applied": "applied",
+    "Screened": "screened",
+    "Assessment": "assessed",
+    "Interview": "interviewed",
+    "Offer": "offered",
+    "Accepted": "accepted",
+    "Started": "started"
+  },
+  "terminal_outcomes": [
+    "rejected",
+    "candidate_withdrew",
+    "offer_declined",
+    "no_show",
+    "cancelled"
+  ],
+  "started_stage": "started",
+  "aging_bands_days": [7, 14, 30],
+  "segments": ["business_unit", "source"],
+  "metrics": [
+    {
+      "name": "application_to_start_yield",
+      "type": "stage_yield",
+      "numerator_stage": "started",
+      "denominator_stage": "applied",
+      "desired_direction": "higher"
+    },
+    {
+      "name": "interview_to_offer_yield",
+      "type": "stage_yield",
+      "numerator_stage": "offered",
+      "denominator_stage": "interviewed",
+      "desired_direction": "contextual"
+    },
+    {
+      "name": "offer_to_acceptance_yield",
+      "type": "stage_yield",
+      "numerator_stage": "accepted",
+      "denominator_stage": "offered",
+      "desired_direction": "higher"
+    }
+  ]
+}
