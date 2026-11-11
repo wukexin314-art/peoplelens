@@ -2,6 +2,21 @@
 
 Use this reference for stage conversion, drop-off, stage aging, time-in-stage, pipeline health, and funnel dashboards.
 
+## Executable workflow
+
+For a CSV with one row per application-stage event, run:
+
+```bash
+python3 scripts/analyze_recruiting_funnel.py INPUT.csv \
+  --config configs/recruiting-funnel.example.yaml \
+  --mapping configs/mappings/canonical-event-history.yaml \
+  --output-dir OUTPUT_DIR
+```
+
+Use a mapping under `configs/mappings/` as a starting point and adapt it to the actual export. The files use JSON-compatible YAML so the workflow has no third-party dependency. Do not run conversion analysis on a current-status-only export; without stage history it can support backlog and aging only.
+
+The analyzer writes aggregate funnel, outcome, aging, segment, configured-metric, metric-dictionary, quality, summary, and run-manifest outputs. Review `data_quality.csv` before using the metrics. It excludes rows with blank application keys, unmapped stages, or invalid stage-entry timestamps and reports the excluded counts.
+
 ## Model the funnel before calculating it
 
 Build a stage map from the user's actual ATS workflow. A common high-level sequence is:
