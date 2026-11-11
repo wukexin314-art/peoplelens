@@ -28,6 +28,8 @@ Do not turn every available field into a chart. Prefer a small set of traceable 
 - Time trend: line chart with a consistent date axis and visible zeroes for missing periods only when zero is true.
 - Actual vs target: bullet chart or horizontal bars; show actual, target, and time-progress marker.
 - Source or level mix: bars or 100% stacked bars, with counts available.
+- Recruiting funnel: a stage table or stepped bars with stage counts, adjacent conversion, cumulative yield, and terminal outcomes. Add cohort and maturity context.
+- Stage aging: median/P75 duration plus aging-band bars; separate completed records from active backlog.
 - Retention or early attrition: cohort table, survival-style curve, or rates with mature cohort counts.
 - Voluntary vs involuntary separation: stacked bars with total rate and counts.
 - Detail/reconciliation: table with filters, not a dense chart.

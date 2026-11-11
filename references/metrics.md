@@ -1,12 +1,25 @@
 # HR metric definitions
 
-Use this reference to select and document defensible formulas. Adapt the definitions to the user's policy; never silently replace an established definition.
+Use this reference to select and document defensible formulas. It is an extensible catalog, not an exhaustive or mandatory scorecard. Adapt definitions to the user's policy; never silently replace an established definition.
 
 ## Required metric metadata
 
-For each recurring KPI, record: name, business question, grain, population, event date, window, numerator, denominator, exclusions, segments, target source, refresh cadence, owner, and known limitations.
+For each recurring KPI, record: name, business question, grain, metric type, population, event date, window or as-of date, numerator, denominator, exclusions, segments, target source, desired direction, refresh cadence, owner, and known limitations.
+
+For a requested metric not listed here, create a metric contract before calculating it. State whether the result is a count, stock, flow, rate, duration, cohort outcome, index, or currency measure. Do not substitute a nearby standard metric without telling the user.
 
 ## Recruiting metrics
+
+For stage-by-stage recruiting analysis, read [recruiting-funnel.md](recruiting-funnel.md).
+
+### Recruiting demand and requisitions
+
+- **Approved openings:** sum approved positions at the target grain; do not count requisition records when one requisition can contain multiple openings.
+- **Open requisitions or openings:** active demand as of a date under the organization's status policy.
+- **Requisition fill rate:** `filled openings / eligible approved openings` for a defined requisition cohort or period. State whether partially filled requisitions count.
+- **Requisition aging:** `as-of date - approved/opened date` for still-open demand. Report median, P75, and aging bands.
+- **Vacancy days:** days an approved opening remains unfilled; distinguish current open age from completed time to fill.
+- **Backlog:** active applications, interviews, offers, or approvals waiting at an as-of date, segmented by aging band when useful.
 
 ### Valid accepted offers
 
@@ -48,6 +61,39 @@ Report unknown sources separately so data-quality problems are visible.
 
 Report median and a percentile such as P75; the mean alone is vulnerable to long-tail outliers.
 
+### Time to hire
+
+`accepted or started date - application date or first active sourcing date`
+
+This is candidate-centered and is not interchangeable with time to fill. State the chosen start and end events.
+
+### Time to start
+
+`actual start date - accepted date`
+
+Separate planned from actual start dates and report no-shows independently.
+
+### Hiring velocity
+
+Count hires, accepted offers, or filled openings per comparable unit of time. Label the event and avoid comparing partial periods without pacing context.
+
+### Candidate and offer outcomes
+
+- **Candidate withdrawal rate:** candidate withdrawals divided by candidates reaching the chosen eligible stage.
+- **Offer decline rate:** declined eligible offers divided by eligible offers extended.
+- **Offer acceptance-to-start yield:** actual starts divided by accepted offers from a mature cohort.
+- **No-show rate:** accepted candidates who do not start divided by mature accepted offers expected to start.
+- **Candidate experience score:** use only a defined survey instrument and response population; always show response count and response rate.
+- **Recruiting SLA attainment:** eligible events completed within an agreed threshold divided by eligible events. Name the owner and clock-stopping rules.
+
+### Source quality and cost
+
+- **Qualified-source rate:** applications reaching a defined qualification stage divided by eligible applications from that source.
+- **Source-to-hire yield:** hires or starts divided by eligible applications from the same source and mature cohort.
+- **Quality after hire by source:** an approved aggregate outcome such as 90-day retention by source. Do not create individual quality scores or use performance outcomes without appropriate governance.
+- **Cost per hire:** eligible internal and external recruiting costs divided by eligible hires. Document cost scope and allocation rules.
+- **Agency dependency:** agency hires or spend divided by the relevant hiring or spend total.
+
 ### Recruiter workload or delivery
 
 Counts can be segmented by recruiter, level, business unit, or source, but they are descriptive. Do not rank recruiters without accounting for requisition difficulty, role mix, ownership changes, and exposure time.
@@ -58,6 +104,10 @@ Counts can be segmented by recruiter, level, business unit, or source, but they 
 
 Count distinct active employees as of the snapshot date under the organization's active-status policy.
 
+### Net headcount change and growth
+
+`closing headcount - opening headcount`; growth rate is `net change / opening headcount`. Reconcile the change to hires, separations, and in-scope transfers.
+
 ### Average headcount
 
 Prefer the mean of regular snapshots across the period. If only opening and closing snapshots exist, use `(opening headcount + closing headcount) / 2` and label the approximation.
@@ -67,6 +117,36 @@ Prefer the mean of regular snapshots across the period. If only opening and clos
 `eligible separations during period / average eligible headcount during period`
 
 State whether the result is monthly, quarterly, annual, or annualized. Separate voluntary and involuntary turnover when supported.
+
+### Internal mobility and promotion
+
+- **Internal mobility rate:** eligible internal moves during the period divided by the chosen eligible employee population or average headcount.
+- **Promotion rate:** eligible promotions divided by the eligible employee population. Define what qualifies as a promotion and whether multiple promotions per person are possible.
+- **Internal fill rate:** openings filled by internal candidates divided by eligible filled openings.
+
+### Tenure, workforce mix, and capacity
+
+- **Tenure distribution:** active headcount by agreed tenure bands as of a date.
+- **Employment mix:** headcount or FTE by employment type, location, level, or organizational unit.
+- **FTE:** sum contracted or policy-defined FTE, not employee count.
+- **Span of control:** direct reports per people manager; report a distribution rather than only an average.
+- **Manager ratio:** people managers divided by eligible headcount under a documented manager definition.
+
+### Absence, engagement, and learning
+
+Calculate these only when the corresponding governed source exists:
+
+- **Absence rate:** eligible absence time divided by scheduled eligible work time.
+- **Engagement or pulse score:** follow the survey instrument's scoring rule; show response rate and avoid exposing small teams.
+- **Learning completion:** completed required learning assignments divided by eligible assignments or people, depending on policy.
+- **Training participation:** distinct eligible participants divided by the eligible population.
+
+### Workforce planning
+
+- **Plan variance:** actual headcount or FTE minus plan, shown as count and percentage where the denominator is meaningful.
+- **Hiring plan attainment:** eligible hires or starts divided by planned hires for the same period and population.
+- **Forecast gap:** forecast headcount or FTE minus plan at a stated future date.
+- **Critical-role coverage:** filled or succession-covered critical positions divided by eligible critical positions, only under an approved role framework.
 
 ### Early attrition rate
 
@@ -95,6 +175,8 @@ Use explicit probation status or policy dates. A common attrition form is `proba
 ## Segmentation
 
 Useful dimensions include business unit, geography, level family, exact grade, employment type, recruitment channel, source of hire, recruiter, and cohort month. Start broad and drill down only when sample size and business relevance justify it.
+
+For recruiting, also consider requisition family, hiring manager organization, location, remote/on-site policy, stage, disposition reason, application month, and requisition cohort. For workforce analysis, tenure band, employment spell, manager/non-manager, and movement type may be useful. Treat sensitive or protected attributes as governed fairness/compliance dimensions, not ordinary performance cuts.
 
 When groups have materially different exposure, role mix, or cohort maturity, use rates with denominators and show counts beside them. Avoid league tables based on small counts.
 

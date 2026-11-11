@@ -9,6 +9,7 @@ Typical grains are:
 - employee event: one hire, transfer, or separation event;
 - employee snapshot: one employee per snapshot date;
 - candidate or application: one application per candidate-requisition pair;
+- recruiting stage event: one entry, exit, or status-change event per application and stage;
 - offer: one offer event or offer version;
 - requisition: one opening or requisition;
 - target: one target per period and organizational unit.
@@ -23,7 +24,15 @@ Map only the fields needed for the task. Preserve original columns and document 
 |---|---|---|
 | `employee_id` | employee ID, worker ID, ERP ID | Preferred key for workforce events |
 | `candidate_id` | candidate ID, application ID, sequence ID | Prefer an application-level key when one candidate can apply more than once |
+| `application_id` | application ID, submission ID | Preferred funnel key; one candidate may have multiple applications |
 | `requisition_id` | req ID, job ID, opening ID | Stable recruiting key |
+| `application_date` | applied date, submission date | Funnel entry date |
+| `stage_name` | application stage, workflow step | Preserve raw value and map to a canonical stage |
+| `stage_entered_at` | status start, stage start timestamp | Needed for time-in-stage and aging |
+| `stage_exited_at` | status end, stage completion timestamp | Derive only when event history is trustworthy |
+| `stage_outcome` | disposition, result, rejection reason | Separate progression, withdrawal, rejection, and administrative closure |
+| `status_changed_at` | last status update, workflow timestamp | Useful when only status history is available |
+| `disposition_reason` | rejection reason, withdrawal reason | Normalize carefully; do not infer sensitive traits |
 | `event_type` | hire/leave type, action, movement type | Normalize to hire, separation, transfer, snapshot |
 | `employment_type` | worker type, personnel type | Regular, intern, contractor, etc. |
 | `business_unit` | BU, organization, department, delivery team | Keep raw and mapped values |
@@ -48,11 +57,11 @@ Map only the fields needed for the task. Preserve original columns and document 
 - Keep `Unknown` distinct from `Other`. Unknown means missing or unmapped; Other means a known residual category.
 - Treat cancelled, rejected, withdrawn, and declined records according to the metric contract, not with one universal exclusion.
 
-A useful recruiting status model is:
+A useful high-level recruiting status model is:
 
-`sourcing -> interview -> offering -> accepted -> waiting_onboard -> onboarded`
+`prospect -> applied -> screened -> assessed -> interviewed -> offered -> accepted -> started`
 
-Terminal exception states can include `candidate_declined`, `offer_rejected`, `cancelled`, and `requisition_closed`. Preserve the raw state and the rule that produced the normalized state.
+Organizations may use fewer, more, or parallel stages. Map the user's workflow rather than forcing this example. Terminal exception states can include `rejected`, `candidate_withdrew`, `offer_declined`, `no_show`, `cancelled`, and `requisition_closed`. Preserve the raw state, timestamps, terminal reason, and rule that produced each normalized stage.
 
 ## Reconciliation and tracker updates
 
