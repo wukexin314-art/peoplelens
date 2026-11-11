@@ -1,4 +1,4 @@
 interface:
   display_name: "PeopleLens"
   short_description: "Analyze HR data and build privacy-aware workforce reports"
-  default_prompt: "Use $hr-analyst to audit my HR dataset and create a decision-ready report."
+  default_prompt: "Use $peoplelens to audit my HR dataset and create a decision-ready report."
