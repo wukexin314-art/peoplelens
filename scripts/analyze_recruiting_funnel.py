@@ -13,6 +13,7 @@ import csv
 import datetime as dt
 import json
 import math
+import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -24,6 +25,8 @@ OUTPUT_FILES = (
     "stage_outcomes.csv",
     "backlog_aging.csv",
     "segment_summary.csv",
+    "cohort_summary.csv",
+    "mapping_report.csv",
     "configured_metrics.csv",
     "metric_dictionary.csv",
     "data_quality.csv",
@@ -60,15 +63,24 @@ def parse_datetime(value: str) -> dt.datetime | None:
         return None
     try:
         parsed = dt.datetime.fromisoformat(text.replace("Z", "+00:00"))
-        return parsed.replace(tzinfo=None) if parsed.tzinfo else parsed
+        if parsed.tzinfo:
+            return parsed.astimezone(dt.timezone.utc).replace(tzinfo=None)
+        return parsed
     except ValueError:
         pass
-    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%Y-%m-%d %H:%M:%S"):
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y-%m-%d %H:%M:%S"):
         try:
             return dt.datetime.strptime(text, fmt)
         except ValueError:
             pass
     return None
+
+
+def parse_as_of_datetime(value: str) -> dt.datetime | None:
+    parsed = parse_datetime(value)
+    if parsed and re.fullmatch(r"\d{4}[-/]\d{2}[-/]\d{2}", value.strip()):
+        return dt.datetime.combine(parsed.date(), dt.time.max)
+    return parsed
 
 
 def percentile(values: list[float], fraction: float) -> float | None:
@@ -121,11 +133,15 @@ def validate_settings(settings: dict[str, Any], headers: list[str]) -> None:
     columns = settings.get("columns")
     if not isinstance(columns, dict):
         raise ValueError("Configuration requires a columns object")
-    missing_mappings = sorted(required - columns.keys())
+    missing_mappings = sorted(
+        canonical for canonical in required if not columns.get(canonical)
+    )
     if missing_mappings:
         raise ValueError(f"Missing required column mappings: {', '.join(missing_mappings)}")
     missing_headers = sorted(
-        source for source in columns.values() if source and source not in headers
+        columns[canonical]
+        for canonical in required
+        if columns.get(canonical) and columns[canonical] not in headers
     )
     if missing_headers:
         raise ValueError(f"Mapped input columns not found: {', '.join(missing_headers)}")
@@ -136,6 +152,18 @@ def validate_settings(settings: dict[str, Any], headers: list[str]) -> None:
         raise ValueError("stage_order contains duplicate stages")
     if not isinstance(settings.get("stage_mapping"), dict):
         raise ValueError("Configuration requires a stage_mapping object")
+    started_stage = settings.get("started_stage", stage_order[-1])
+    if started_stage not in stage_order:
+        raise ValueError("started_stage must appear in stage_order")
+    minimum_cell_size = settings.get("minimum_cell_size", 5)
+    if not isinstance(minimum_cell_size, int) or minimum_cell_size < 1:
+        raise ValueError("minimum_cell_size must be a positive integer")
+    cohort = settings.get("cohort", {})
+    if not isinstance(cohort, dict):
+        raise ValueError("cohort must be an object")
+    followup = cohort.get("minimum_followup_days", 0)
+    if not isinstance(followup, int) or followup < 0:
+        raise ValueError("cohort.minimum_followup_days must be a non-negative integer")
 
 
 def band_label(age: int, cutoffs: list[int]) -> str:
@@ -149,6 +177,15 @@ def band_label(age: int, cutoffs: list[int]) -> str:
 
 def quality_row(severity: str, check: str, count: int, detail: str) -> dict[str, Any]:
     return {"severity": severity, "check": check, "count": count, "detail": detail}
+
+
+def suppress_small_cell(denominator: int, numerator: int, minimum: int) -> bool:
+    remainder = denominator - numerator
+    return (
+        denominator < minimum
+        or 0 < numerator < minimum
+        or 0 < remainder < minimum
+    )
 
 
 def analyze(
@@ -170,15 +207,35 @@ def analyze(
     stage_order: list[str] = settings["stage_order"]
     stage_index = {stage: index for index, stage in enumerate(stage_order)}
     raw_stage_mapping = settings["stage_mapping"]
-    stage_mapping = {str(key).strip().casefold(): value for key, value in raw_stage_mapping.items()}
-    terminal_outcomes = {str(value).strip().casefold() for value in settings.get("terminal_outcomes", [])}
+    stage_mapping = {
+        str(key).strip().casefold(): str(value).strip()
+        for key, value in raw_stage_mapping.items()
+    }
+    terminal_outcomes = {
+        str(value).strip().casefold()
+        for value in settings.get("terminal_outcomes", [])
+    }
     started_stage = settings.get("started_stage", stage_order[-1])
-    as_of = parse_datetime(str(settings.get("as_of_date", "")))
+    as_of = parse_as_of_datetime(str(settings.get("as_of_date", "")))
     if as_of is None:
         raise ValueError("Configuration requires a valid as_of_date")
-    aging_bands = sorted({int(value) for value in settings.get("aging_bands_days", [7, 14, 30])})
+    aging_bands = sorted(
+        {int(value) for value in settings.get("aging_bands_days", [7, 14, 30])}
+    )
     if any(value < 0 for value in aging_bands):
         raise ValueError("aging_bands_days cannot contain negative values")
+    minimum_cell_size = settings.get("minimum_cell_size", 5)
+    cohort = settings.get("cohort", {})
+    cohort_start = parse_datetime(str(cohort.get("start_date", "")))
+    cohort_end = parse_datetime(str(cohort.get("end_date", "")))
+    if cohort.get("start_date") and cohort_start is None:
+        raise ValueError("cohort.start_date is invalid")
+    if cohort.get("end_date") and cohort_end is None:
+        raise ValueError("cohort.end_date is invalid")
+    if cohort_start and cohort_end and cohort_start.date() > cohort_end.date():
+        raise ValueError("cohort.start_date cannot be after cohort.end_date")
+    minimum_followup_days = cohort.get("minimum_followup_days", 0)
+    maturity_cutoff = as_of.date() - dt.timedelta(days=minimum_followup_days)
 
     def cell(row: dict[str, str], canonical: str) -> str:
         source = columns.get(canonical, "")
@@ -187,11 +244,14 @@ def analyze(
     issues: Counter[str] = Counter()
     applications: dict[str, list[dict[str, Any]]] = defaultdict(list)
     seen_rows: Counter[tuple[str, ...]] = Counter()
+    raw_stage_counts: Counter[str] = Counter()
     valid_event_rows = 0
 
     for row in source_rows:
         application_id = cell(row, "application_id")
         raw_stage = cell(row, "stage")
+        if raw_stage:
+            raw_stage_counts[raw_stage] += 1
         entered_text = cell(row, "stage_entered_at")
         exited_text = cell(row, "stage_exited_at")
         if not application_id:
@@ -209,11 +269,19 @@ def analyze(
         if entered is None:
             issues["invalid_stage_entered_at"] += 1
             continue
+        if entered > as_of:
+            issues["future_stage_entered_at"] += 1
+            continue
         if exited_text and exited is None:
             issues["invalid_stage_exited_at"] += 1
         if exited and exited < entered:
             issues["exit_before_entry"] += 1
             exited = None
+        outcome = cell(row, "stage_outcome").casefold()
+        if exited and exited > as_of:
+            issues["stage_exit_after_as_of"] += 1
+            exited = None
+            outcome = ""
         signature = (application_id, stage, entered_text, exited_text, cell(row, "stage_outcome"))
         seen_rows[signature] += 1
         event = {
@@ -222,7 +290,7 @@ def analyze(
             "stage_index": stage_index[stage],
             "entered": entered,
             "exited": exited,
-            "outcome": cell(row, "stage_outcome").casefold(),
+            "outcome": outcome,
             "segments": {
                 segment: cell(row, segment) or "Unknown"
                 for segment in settings.get("segments", [])
@@ -238,6 +306,10 @@ def analyze(
     backlog: Counter[str] = Counter()
     backlog_aging: Counter[tuple[str, str]] = Counter()
     application_segments: dict[str, dict[str, str]] = {}
+    application_entry: dict[str, dt.datetime] = {}
+    eligible_applications: set[str] = set()
+    mature_applications: set[str] = set()
+    progression: dict[tuple[str, str], set[str]] = defaultdict(set)
 
     for application_id, events in applications.items():
         events.sort(key=lambda event: (event["entered"], event["stage_index"]))
@@ -250,14 +322,8 @@ def analyze(
                 seen_signatures.add(signature)
         events = unique_events
         applications[application_id] = events
-        application_segments[application_id] = events[-1]["segments"]
         previous_index = None
         for event in events:
-            reached[event["stage"]].add(application_id)
-            if event["exited"]:
-                durations[event["stage"]].append(
-                    (event["exited"] - event["entered"]).total_seconds() / 86400
-                )
             if previous_index is not None:
                 if event["stage_index"] < previous_index:
                     issues["stage_regressions"] += 1
@@ -265,22 +331,78 @@ def analyze(
                     issues["skipped_stage_transitions"] += 1
             previous_index = event["stage_index"]
 
-        terminal_events = [event for event in events if event["outcome"] in terminal_outcomes]
+        entry_events = [event for event in events if event["stage"] == stage_order[0]]
+        if not entry_events:
+            issues["missing_first_stage"] += 1
+            continue
+        entry = min(event["entered"] for event in entry_events)
+        application_entry[application_id] = entry
+        if (
+            (cohort_start and entry.date() < cohort_start.date())
+            or (cohort_end and entry.date() > cohort_end.date())
+        ):
+            issues["outside_cohort_window"] += 1
+            continue
+        eligible_applications.add(application_id)
+        if entry.date() > maturity_cutoff:
+            issues["immature_cohort"] += 1
+            continue
+        mature_applications.add(application_id)
+
+    for application_id in eligible_applications:
+        entry = application_entry[application_id]
+        events = [event for event in applications[application_id] if event["entered"] >= entry]
         latest = events[-1]
-        if latest["outcome"] in terminal_outcomes:
-            stage_outcomes[(latest["stage"], latest["outcome"])] += 1
-        elif application_id not in reached.get(started_stage, set()):
-            backlog[latest["stage"]] += 1
-            age = max(0, (as_of - latest["entered"]).days)
-            backlog_aging[(latest["stage"], band_label(age, aging_bands))] += 1
+        application_segments[application_id] = latest["segments"]
+        terminal_events = [
+            event for event in events if event["outcome"] in terminal_outcomes
+        ]
         if len({event["outcome"] for event in terminal_events}) > 1:
             issues["multiple_terminal_outcomes"] += 1
+
+        if latest["outcome"] in terminal_outcomes:
+            if application_id in mature_applications:
+                stage_outcomes[(latest["stage"], latest["outcome"])] += 1
+        elif not any(event["stage"] == started_stage for event in events):
+            if latest["exited"] is None:
+                backlog[latest["stage"]] += 1
+                age = max(0, (as_of - latest["entered"]).days)
+                backlog_aging[(latest["stage"], band_label(age, aging_bands))] += 1
+            else:
+                issues["exited_without_next_stage"] += 1
+
+        if application_id not in mature_applications:
+            continue
+        for event in events:
+            reached[event["stage"]].add(application_id)
+            if event["exited"]:
+                durations[event["stage"]].append(
+                    (event["exited"] - event["entered"]).total_seconds() / 86400
+                )
+        for index, current_stage in enumerate(stage_order[:-1]):
+            next_stage = stage_order[index + 1]
+            current_times = [
+                event["entered"] for event in events if event["stage"] == current_stage
+            ]
+            next_times = [
+                event["entered"] for event in events if event["stage"] == next_stage
+            ]
+            if current_times and next_times and any(
+                next_time >= current_time
+                for current_time in current_times
+                for next_time in next_times
+            ):
+                progression[(current_stage, next_stage)].add(application_id)
 
     first_stage_count = len(reached[stage_order[0]])
     funnel_rows = []
     for index, stage in enumerate(stage_order):
         current_count = len(reached[stage])
-        next_count = len(reached[stage_order[index + 1]]) if index + 1 < len(stage_order) else None
+        next_count = (
+            len(progression[(stage, stage_order[index + 1])])
+            if index + 1 < len(stage_order)
+            else None
+        )
         adjacent = next_count / current_count if next_count is not None and current_count else None
         cumulative = current_count / first_stage_count if first_stage_count else None
         drop_offs = sum(count for (outcome_stage, _), count in stage_outcomes.items() if outcome_stage == stage)
@@ -324,26 +446,118 @@ def analyze(
         values: dict[str, set[str]] = defaultdict(set)
         started: dict[str, set[str]] = defaultdict(set)
         for application_id, segment_values in application_segments.items():
+            if application_id not in mature_applications:
+                continue
             value = segment_values.get(segment, "Unknown")
             values[value].add(application_id)
             if application_id in reached.get(started_stage, set()):
                 started[value].add(application_id)
+        group_metrics = []
         for value in sorted(values):
             denominator = len(values[value])
             numerator = len(started[value])
+            group_metrics.append(
+                {
+                    "value": value,
+                    "denominator": denominator,
+                    "numerator": numerator,
+                    "suppression_reason": (
+                        "small_cell"
+                        if suppress_small_cell(
+                            denominator, numerator, minimum_cell_size
+                        )
+                        else ""
+                    ),
+                }
+            )
+        suppressed_groups = [
+            group for group in group_metrics if group["suppression_reason"]
+        ]
+        if len(suppressed_groups) == 1 and len(group_metrics) > 1:
+            secondary = min(
+                (group for group in group_metrics if not group["suppression_reason"]),
+                key=lambda group: group["denominator"],
+            )
+            secondary["suppression_reason"] = "complementary"
+        for group in group_metrics:
+            denominator = group["denominator"]
+            numerator = group["numerator"]
+            suppressed = bool(group["suppression_reason"])
             segment_rows.append(
                 {
                     "segment": segment,
-                    "value": value,
-                    "application_count": denominator,
-                    "started_count": numerator,
-                    "application_to_start_rate": format_number(numerator / denominator if denominator else None),
+                    "value": group["value"],
+                    "application_count": "" if suppressed else denominator,
+                    "started_count": "" if suppressed else numerator,
+                    "application_to_start_rate": (
+                        ""
+                        if suppressed
+                        else format_number(numerator / denominator if denominator else None)
+                    ),
+                    "suppressed": str(suppressed).lower(),
+                    "suppression_reason": group["suppression_reason"],
+                    "minimum_cell_size": minimum_cell_size,
                 }
             )
     write_csv(
         output_dir / "segment_summary.csv",
-        ["segment", "value", "application_count", "started_count", "application_to_start_rate"],
+        [
+            "segment",
+            "value",
+            "application_count",
+            "started_count",
+            "application_to_start_rate",
+            "suppressed",
+            "suppression_reason",
+            "minimum_cell_size",
+        ],
         segment_rows,
+    )
+
+    cohort_rows = [
+        {
+            "entry_stage": stage_order[0],
+            "start_date": cohort_start.date().isoformat() if cohort_start else "",
+            "end_date": cohort_end.date().isoformat() if cohort_end else "",
+            "minimum_followup_days": minimum_followup_days,
+            "eligible_applications": len(eligible_applications),
+            "mature_applications": len(mature_applications),
+            "immature_applications": len(eligible_applications - mature_applications),
+            "excluded_without_entry_stage": issues["missing_first_stage"],
+            "excluded_outside_window": issues["outside_cohort_window"],
+        }
+    ]
+    write_csv(
+        output_dir / "cohort_summary.csv",
+        list(cohort_rows[0]),
+        cohort_rows,
+    )
+
+    mapping_rows = [
+        {
+            "mapping_type": "column",
+            "source_value": source,
+            "canonical_value": canonical,
+            "status": "found" if source in headers else "missing",
+            "event_count": "",
+        }
+        for canonical, source in sorted(columns.items())
+        if source
+    ]
+    mapping_rows.extend(
+        {
+            "mapping_type": "stage",
+            "source_value": raw_stage,
+            "canonical_value": stage_mapping.get(raw_stage.casefold(), ""),
+            "status": "mapped" if raw_stage.casefold() in stage_mapping else "unmapped",
+            "event_count": count,
+        }
+        for raw_stage, count in sorted(raw_stage_counts.items())
+    )
+    write_csv(
+        output_dir / "mapping_report.csv",
+        ["mapping_type", "source_value", "canonical_value", "status", "event_count"],
+        mapping_rows,
     )
 
     metric_rows = []
@@ -401,12 +615,18 @@ def analyze(
         quality_row("error", "missing_application_id", issues["missing_application_id"], "Rows excluded because the application key is blank."),
         quality_row("error", "invalid_stage_entered_at", issues["invalid_stage_entered_at"], "Rows excluded because the stage entry timestamp is invalid."),
         quality_row("error", "exit_before_entry", issues["exit_before_entry"], "Stage exit precedes entry; duration was not calculated."),
+        quality_row("warning", "future_stage_entered_at", issues["future_stage_entered_at"], "Rows after the as-of timestamp were excluded."),
         quality_row("warning", "blank_stage", issues["blank_stage"], "Rows excluded because the raw stage is blank."),
         quality_row("warning", "unknown_stage", issues["unknown_stage"], "Rows excluded because the raw stage is not mapped."),
         quality_row("warning", "invalid_stage_exited_at", issues["invalid_stage_exited_at"], "Duration was not calculated for invalid exit timestamps."),
         quality_row("warning", "duplicate_event_rows", issues["duplicate_event_rows"], "Exact duplicate stage events were counted once."),
         quality_row("warning", "stage_regressions", issues["stage_regressions"], "Applications moved to an earlier canonical stage."),
+        quality_row("warning", "missing_first_stage", issues["missing_first_stage"], "Applications without the configured cohort entry stage were excluded from cohort metrics."),
+        quality_row("warning", "exited_without_next_stage", issues["exited_without_next_stage"], "The latest stage was exited without a terminal outcome or next stage; it was not counted as active backlog."),
         quality_row("info", "skipped_stage_transitions", issues["skipped_stage_transitions"], "Applications skipped at least one canonical stage."),
+        quality_row("info", "stage_exit_after_as_of", issues["stage_exit_after_as_of"], "Stage exits after the as-of timestamp were treated as still open."),
+        quality_row("info", "outside_cohort_window", issues["outside_cohort_window"], "Applications entered the funnel outside the configured cohort window."),
+        quality_row("info", "immature_cohort", issues["immature_cohort"], "Applications lack the configured minimum follow-up and were excluded from mature-cohort rates."),
         quality_row("warning", "multiple_terminal_outcomes", issues["multiple_terminal_outcomes"], "Applications contain conflicting terminal outcomes."),
     ]
     write_csv(output_dir / "data_quality.csv", ["severity", "check", "count", "detail"], quality_rows)
@@ -425,10 +645,12 @@ def analyze(
         f"- As-of date: {as_of.date().isoformat()}",
         f"- Source rows: {len(source_rows)}",
         f"- Distinct applications analyzed: {len(applications)}",
+        f"- Eligible cohort applications: {len(eligible_applications)}; mature: {len(mature_applications)}",
         f"- Applications reaching {started_stage}: {len(reached.get(started_stage, set()))}",
         f"- Active backlog: {sum(backlog.values())}",
         f"- Terminal outcomes: {sum(stage_outcomes.values())}",
         f"- Data-quality errors: {error_count}; warnings: {warning_count}",
+        f"- Suppressed segment rows: {sum(row['suppressed'] == 'true' for row in segment_rows)}",
     ]
     if bottleneck:
         summary_lines.append(
@@ -437,7 +659,7 @@ def analyze(
     summary_lines.extend(
         [
             "",
-            "Rates use distinct applications reaching each observed stage. Review `data_quality.csv` before using the results, especially when stage history is incomplete or cohorts are immature.",
+            "Funnel rates use the mature entry cohort and require the same application to progress in chronological order. Backlog uses all eligible cohort applications as of the configured timestamp. Review `data_quality.csv` before interpreting results.",
         ]
     )
     (output_dir / "analysis_summary.md").write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
@@ -448,6 +670,10 @@ def analyze(
         "source_rows": len(source_rows),
         "valid_event_rows": valid_event_rows,
         "distinct_applications": len(applications),
+        "eligible_cohort_applications": len(eligible_applications),
+        "mature_cohort_applications": len(mature_applications),
+        "minimum_followup_days": minimum_followup_days,
+        "minimum_cell_size": minimum_cell_size,
         "stage_order": stage_order,
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "output_files": list(OUTPUT_FILES),
@@ -463,6 +689,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("input", type=Path, help="CSV containing one row per application-stage event")
     parser.add_argument("--config", type=Path, required=True, help="JSON-compatible YAML analysis configuration")
     parser.add_argument("--mapping", type=Path, help="Optional JSON-compatible YAML column/stage mapping override")
+    parser.add_argument("--as-of-date", help="Override the configuration as-of date")
     parser.add_argument("--output-dir", type=Path, required=True, help="Directory for aggregate outputs")
     parser.add_argument("--force", action="store_true", help="Replace known generated files in the output directory")
     return parser
@@ -480,6 +707,8 @@ def main() -> int:
             if not args.mapping.is_file():
                 raise FileNotFoundError(f"Mapping file not found: {args.mapping}")
             settings = merge_settings(settings, load_json_yaml(args.mapping))
+        if args.as_of_date:
+            settings["as_of_date"] = args.as_of_date
         manifest = analyze(args.input, settings, args.output_dir, force=args.force)
         print(json.dumps(manifest, ensure_ascii=False, indent=2))
         return 0

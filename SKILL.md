@@ -19,7 +19,7 @@ Use only the references relevant to the request. For an end-to-end recruiting an
 
 The metric catalog is a starting point, not a closed list. When the user requests a metric that is not documented, define it with the same metric contract, confirm or surface material assumptions, and add it to the output metric dictionary. Prefer the user's established policy over a generic formula.
 
-Use the executable funnel workflow only when stage history is available. A current-status snapshot can support backlog analysis but cannot reconstruct historical conversion or time in stage. Keep generated aggregate outputs separate from source data and review `data_quality.csv` before interpreting results.
+Use the executable funnel workflow only when stage history is available. A current-status snapshot can support backlog analysis but cannot reconstruct historical conversion or time in stage. Keep generated aggregate outputs separate from source data and review `data_quality.csv`, `mapping_report.csv`, and `cohort_summary.csv` before interpreting results. Preserve the default minimum cell size of 5 unless the user's governing policy requires a different threshold.
 
 ## Work from a metric contract
 

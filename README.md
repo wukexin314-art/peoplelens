@@ -46,7 +46,11 @@ python3 scripts/analyze_recruiting_funnel.py \
   --output-dir /tmp/peoplelens-output
 ```
 
-It produces funnel conversion, cumulative yield, terminal outcomes, stage duration, active backlog, aging bands, configured metrics, segment cuts, an automatic data-quality report, a metric dictionary, and a run manifest. See [the synthetic example](examples/recruiting-funnel/README.md) and its committed standard output.
+It produces cohort-safe funnel conversion, cumulative yield, terminal outcomes, stage duration, active backlog, aging bands, privacy-suppressed segment cuts, mapping diagnostics, configured metrics, an automatic data-quality report, a metric dictionary, and a run manifest. See [the synthetic example](examples/recruiting-funnel/README.md) and its committed standard output.
+
+Funnel rates use applications from the configured entry cohort that have reached the minimum follow-up window. Adjacent conversion requires the same application to reach the next stage in chronological order. Events after the as-of timestamp are excluded, and stage exits after that timestamp remain open for backlog purposes. Override the configured date when needed with `--as-of-date YYYY-MM-DD`.
+
+Segment outputs suppress small cells using `minimum_cell_size` (default `5`). `mapping_report.csv` lists mapped and unmapped source stages without candidate-level values, while `cohort_summary.csv` records the cohort window and maturity counts.
 
 Configuration files use JSON-compatible YAML and can be edited without adding Python dependencies. Mapping starters are provided for canonical event history, human-readable headers, and a generic ATS status log. They are templates, not vendor guarantees; confirm every field and stage mapping against the actual export.
 

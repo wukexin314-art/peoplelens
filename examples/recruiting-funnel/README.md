@@ -19,6 +19,8 @@ The input grain is one row per application-stage event. The committed output sho
 - `stage_outcomes.csv`: terminal outcomes by stage;
 - `backlog_aging.csv`: current active pipeline by stage and aging band;
 - `segment_summary.csv`: application-to-start yield by configured segments;
+- `cohort_summary.csv`: configured entry window, minimum follow-up, and mature/immature population counts;
+- `mapping_report.csv`: source-column checks and mapped or unmapped source-stage counts without candidate-level values;
 - `configured_metrics.csv`: metrics declared in the YAML configuration;
 - `metric_dictionary.csv`: generated definitions for configured metrics;
 - `data_quality.csv`: structural and sequence checks without candidate-level values;
@@ -26,3 +28,4 @@ The input grain is one row per application-stage event. The committed output sho
 - `run_manifest.json`: input counts, stage order, as-of date, and generated files.
 
 Rates are decimals so downstream spreadsheets and BI tools can format them without parsing percentage strings.
+The example uses the default minimum cell size of 5, so segment rows that could reveal a small numerator, denominator, or remainder are intentionally blank and marked `suppressed=true`.

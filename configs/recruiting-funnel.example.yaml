@@ -26,6 +26,12 @@
     "cancelled"
   ],
   "started_stage": "started",
+  "minimum_cell_size": 5,
+  "cohort": {
+    "start_date": "2026-01-01",
+    "end_date": "2026-03-31",
+    "minimum_followup_days": 0
+  },
   "aging_bands_days": [7, 14, 30],
   "segments": ["business_unit", "source"],
   "metrics": [

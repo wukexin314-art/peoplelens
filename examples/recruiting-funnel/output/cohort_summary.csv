@@ -1,0 +1,2 @@
+entry_stage,start_date,end_date,minimum_followup_days,eligible_applications,mature_applications,immature_applications,excluded_without_entry_stage,excluded_outside_window
+applied,2026-01-01,2026-03-31,0,12,12,0,0,0

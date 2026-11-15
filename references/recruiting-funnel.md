@@ -15,7 +15,11 @@ python3 scripts/analyze_recruiting_funnel.py INPUT.csv \
 
 Use a mapping under `configs/mappings/` as a starting point and adapt it to the actual export. The files use JSON-compatible YAML so the workflow has no third-party dependency. Do not run conversion analysis on a current-status-only export; without stage history it can support backlog and aging only.
 
-The analyzer writes aggregate funnel, outcome, aging, segment, configured-metric, metric-dictionary, quality, summary, and run-manifest outputs. Review `data_quality.csv` before using the metrics. It excludes rows with blank application keys, unmapped stages, or invalid stage-entry timestamps and reports the excluded counts.
+The analyzer writes aggregate funnel, outcome, aging, segment, cohort, mapping-diagnostic, configured-metric, metric-dictionary, quality, summary, and run-manifest outputs. Review `data_quality.csv`, `mapping_report.csv`, and `cohort_summary.csv` before using the metrics. It excludes rows with blank application keys, unmapped stages, invalid stage-entry timestamps, or events after the as-of timestamp and reports the excluded counts.
+
+Configure `cohort.start_date`, `cohort.end_date`, and `cohort.minimum_followup_days` for entry-cohort analysis. Funnel rates use only mature applications entering at the first configured stage. Backlog uses all eligible cohort applications as of the configured timestamp. Use `minimum_cell_size` (default `5`) to suppress small segment denominators, numerators, and complementary cells.
+
+Use ISO dates and timestamps. Offset-aware timestamps are normalized to UTC. Ambiguous dates such as `03/04/2026` are rejected instead of silently assuming a regional format.
 
 ## Model the funnel before calculating it
 

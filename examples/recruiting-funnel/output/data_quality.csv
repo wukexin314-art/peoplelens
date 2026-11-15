@@ -2,10 +2,16 @@ severity,check,count,detail
 error,missing_application_id,0,Rows excluded because the application key is blank.
 error,invalid_stage_entered_at,0,Rows excluded because the stage entry timestamp is invalid.
 error,exit_before_entry,0,Stage exit precedes entry; duration was not calculated.
+warning,future_stage_entered_at,0,Rows after the as-of timestamp were excluded.
 warning,blank_stage,0,Rows excluded because the raw stage is blank.
 warning,unknown_stage,0,Rows excluded because the raw stage is not mapped.
 warning,invalid_stage_exited_at,0,Duration was not calculated for invalid exit timestamps.
 warning,duplicate_event_rows,0,Exact duplicate stage events were counted once.
 warning,stage_regressions,0,Applications moved to an earlier canonical stage.
+warning,missing_first_stage,0,Applications without the configured cohort entry stage were excluded from cohort metrics.
+warning,exited_without_next_stage,0,The latest stage was exited without a terminal outcome or next stage; it was not counted as active backlog.
 info,skipped_stage_transitions,0,Applications skipped at least one canonical stage.
+info,stage_exit_after_as_of,0,Stage exits after the as-of timestamp were treated as still open.
+info,outside_cohort_window,0,Applications entered the funnel outside the configured cohort window.
+info,immature_cohort,0,Applications lack the configured minimum follow-up and were excluded from mature-cohort rates.
 warning,multiple_terminal_outcomes,0,Applications contain conflicting terminal outcomes.

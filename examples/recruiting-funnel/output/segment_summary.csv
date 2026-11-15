@@ -1,6 +1,6 @@
-segment,value,application_count,started_count,application_to_start_rate
-business_unit,Operations,6,2,0.3333
-business_unit,Technology,6,2,0.3333
-source,Agency,3,0,0.0000
-source,Direct,5,3,0.6000
-source,Referral,4,1,0.2500
+segment,value,application_count,started_count,application_to_start_rate,suppressed,suppression_reason,minimum_cell_size
+business_unit,Operations,,,,true,small_cell,5
+business_unit,Technology,,,,true,small_cell,5
+source,Agency,,,,true,small_cell,5
+source,Direct,,,,true,small_cell,5
+source,Referral,,,,true,small_cell,5

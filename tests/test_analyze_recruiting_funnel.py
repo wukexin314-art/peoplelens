@@ -17,11 +17,42 @@ SPEC.loader.exec_module(MODULE)
 
 
 class RecruitingFunnelTest(unittest.TestCase):
-    def test_synthetic_example(self) -> None:
-        settings = MODULE.merge_settings(
+    def settings(self) -> dict:
+        return MODULE.merge_settings(
             MODULE.load_json_yaml(ROOT / "configs" / "recruiting-funnel.example.yaml"),
-            MODULE.load_json_yaml(ROOT / "configs" / "mappings" / "canonical-event-history.yaml"),
+            MODULE.load_json_yaml(
+                ROOT / "configs" / "mappings" / "canonical-event-history.yaml"
+            ),
         )
+
+    def run_rows(self, rows: list[dict[str, str]], settings: dict) -> tuple[dict, Path]:
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        root = Path(directory.name)
+        input_path = root / "input.csv"
+        fieldnames = [
+            "application_id",
+            "stage",
+            "stage_entered_at",
+            "stage_exited_at",
+            "stage_outcome",
+            "business_unit",
+            "source",
+        ]
+        with input_path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+        output = root / "output"
+        return MODULE.analyze(input_path, settings, output), output
+
+    @staticmethod
+    def read_rows(path: Path) -> list[dict[str, str]]:
+        with path.open(newline="", encoding="utf-8") as handle:
+            return list(csv.DictReader(handle))
+
+    def test_synthetic_example(self) -> None:
+        settings = self.settings()
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory)
             manifest = MODULE.analyze(
@@ -30,16 +61,155 @@ class RecruitingFunnelTest(unittest.TestCase):
                 output,
             )
             self.assertEqual(manifest["distinct_applications"], 12)
+            self.assertEqual(manifest["mature_cohort_applications"], 12)
 
-            with (output / "funnel_summary.csv").open(newline="", encoding="utf-8") as handle:
-                funnel = {row["stage"]: row for row in csv.DictReader(handle)}
+            funnel = {
+                row["stage"]: row
+                for row in self.read_rows(output / "funnel_summary.csv")
+            }
             self.assertEqual(funnel["applied"]["reached_applications"], "12")
             self.assertEqual(funnel["started"]["reached_applications"], "4")
             self.assertEqual(funnel["offered"]["adjacent_conversion_rate"], "0.6667")
 
-            with (output / "data_quality.csv").open(newline="", encoding="utf-8") as handle:
-                quality = list(csv.DictReader(handle))
-            self.assertFalse(any(int(row["count"]) for row in quality if row["severity"] == "error"))
+            quality = self.read_rows(output / "data_quality.csv")
+            self.assertFalse(
+                any(int(row["count"]) for row in quality if row["severity"] == "error")
+            )
+            segments = self.read_rows(output / "segment_summary.csv")
+            self.assertTrue(all(row["suppressed"] == "true" for row in segments))
+            self.assertTrue(all(row["application_count"] == "" for row in segments))
+
+    def test_conversion_uses_same_applications_and_reports_mapping_gaps(self) -> None:
+        settings = self.settings()
+        settings["cohort"] = {"minimum_followup_days": 0}
+        rows = [
+            {"application_id": "A1", "stage": "Applied", "stage_entered_at": "2026-01-01", "stage_exited_at": "2026-01-02"},
+            {"application_id": "A1", "stage": "Screened", "stage_entered_at": "2026-01-02"},
+            {"application_id": "A2", "stage": "Applied", "stage_entered_at": "2026-01-03"},
+            {"application_id": "B1", "stage": "Screened", "stage_entered_at": "2026-01-04"},
+            {"application_id": "U1", "stage": "Phone Screen", "stage_entered_at": "2026-01-05"},
+            {"application_id": "F1", "stage": "Applied", "stage_entered_at": "2026-04-01"},
+        ]
+        _, output = self.run_rows(rows, settings)
+
+        funnel = {
+            row["stage"]: row
+            for row in self.read_rows(output / "funnel_summary.csv")
+        }
+        self.assertEqual(funnel["applied"]["reached_applications"], "2")
+        self.assertEqual(funnel["applied"]["adjacent_conversion_rate"], "0.5000")
+        quality = {
+            row["check"]: int(row["count"])
+            for row in self.read_rows(output / "data_quality.csv")
+        }
+        self.assertEqual(quality["missing_first_stage"], 1)
+        self.assertEqual(quality["unknown_stage"], 1)
+        self.assertEqual(quality["future_stage_entered_at"], 1)
+        mappings = self.read_rows(output / "mapping_report.csv")
+        phone_screen = next(
+            row for row in mappings if row["source_value"] == "Phone Screen"
+        )
+        self.assertEqual(phone_screen["status"], "unmapped")
+        self.assertEqual(phone_screen["event_count"], "1")
+
+    def test_timezone_duration_and_exited_stage_is_not_backlog(self) -> None:
+        settings = self.settings()
+        settings["as_of_date"] = "2026-01-31"
+        settings["cohort"] = {"minimum_followup_days": 0}
+        rows = [
+            {
+                "application_id": "A1",
+                "stage": "Applied",
+                "stage_entered_at": "2026-01-01T23:00:00-05:00",
+                "stage_exited_at": "2026-01-02T05:00:00Z",
+            }
+        ]
+        _, output = self.run_rows(rows, settings)
+        funnel = {
+            row["stage"]: row
+            for row in self.read_rows(output / "funnel_summary.csv")
+        }
+        self.assertEqual(funnel["applied"]["median_time_in_stage_days"], "0.04")
+        self.assertEqual(funnel["applied"]["active_backlog"], "0")
+        quality = {
+            row["check"]: int(row["count"])
+            for row in self.read_rows(output / "data_quality.csv")
+        }
+        self.assertEqual(quality["exited_without_next_stage"], 1)
+        self.assertIsNone(MODULE.parse_datetime("03/04/2026"))
+
+    def test_future_exit_is_open_at_as_of_date(self) -> None:
+        settings = self.settings()
+        settings["cohort"] = {"minimum_followup_days": 0}
+        rows = [
+            {
+                "application_id": "A1",
+                "stage": "Applied",
+                "stage_entered_at": "2026-01-01",
+                "stage_exited_at": "2026-04-01",
+                "stage_outcome": "rejected",
+            }
+        ]
+        _, output = self.run_rows(rows, settings)
+        funnel = {
+            row["stage"]: row
+            for row in self.read_rows(output / "funnel_summary.csv")
+        }
+        self.assertEqual(funnel["applied"]["active_backlog"], "1")
+        self.assertEqual(funnel["applied"]["terminal_drop_offs"], "0")
+        quality = {
+            row["check"]: int(row["count"])
+            for row in self.read_rows(output / "data_quality.csv")
+        }
+        self.assertEqual(quality["stage_exit_after_as_of"], 1)
+
+    def test_small_cell_uses_complementary_suppression(self) -> None:
+        settings = self.settings()
+        settings["cohort"] = {"minimum_followup_days": 0}
+        settings["segments"] = ["source"]
+        rows = []
+        for index, source in enumerate(["Large A"] * 5 + ["Large B"] * 5 + ["Small"]):
+            rows.append(
+                {
+                    "application_id": f"A{index}",
+                    "stage": "Applied",
+                    "stage_entered_at": "2026-01-01",
+                    "source": source,
+                }
+            )
+        _, output = self.run_rows(rows, settings)
+        segments = self.read_rows(output / "segment_summary.csv")
+        suppressed = [row for row in segments if row["suppressed"] == "true"]
+        self.assertEqual(len(suppressed), 2)
+        self.assertEqual(
+            {row["suppression_reason"] for row in suppressed},
+            {"small_cell", "complementary"},
+        )
+
+    def test_cohort_window_and_maturity(self) -> None:
+        settings = self.settings()
+        settings["cohort"] = {
+            "start_date": "2026-01-01",
+            "end_date": "2026-03-31",
+            "minimum_followup_days": 30,
+        }
+        rows = [
+            {"application_id": "A1", "stage": "Applied", "stage_entered_at": "2026-01-01", "stage_exited_at": "2026-01-10"},
+            {"application_id": "A1", "stage": "Started", "stage_entered_at": "2026-01-10"},
+            {"application_id": "A2", "stage": "Applied", "stage_entered_at": "2026-03-20", "stage_exited_at": "2026-03-25"},
+            {"application_id": "A2", "stage": "Started", "stage_entered_at": "2026-03-25"},
+        ]
+        manifest, output = self.run_rows(rows, settings)
+        self.assertEqual(manifest["eligible_cohort_applications"], 2)
+        self.assertEqual(manifest["mature_cohort_applications"], 1)
+        cohort = self.read_rows(output / "cohort_summary.csv")[0]
+        self.assertEqual(cohort["immature_applications"], "1")
+        funnel = {
+            row["stage"]: row
+            for row in self.read_rows(output / "funnel_summary.csv")
+        }
+        self.assertEqual(funnel["applied"]["reached_applications"], "1")
+        self.assertEqual(funnel["started"]["reached_applications"], "1")
 
 
 if __name__ == "__main__":

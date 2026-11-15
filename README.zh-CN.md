@@ -42,7 +42,11 @@ python3 scripts/analyze_recruiting_funnel.py \
   --output-dir /tmp/peoplelens-output
 ```
 
-它会生成阶段转化、累计转化、终止结果、阶段耗时、当前积压、Aging、分群结果、配置化指标、指标字典、自动数据质量报告和运行清单。仓库包含合成数据与标准输出，可直接复现。
+它会生成 cohort 口径的阶段转化、累计转化、终止结果、阶段耗时、当前积压、Aging、隐私抑制后的分群结果、映射诊断、配置化指标、指标字典、自动数据质量报告和运行清单。仓库包含合成数据与标准输出，可直接复现。
+
+漏斗指标只使用满足最短观察期的 entry cohort，并要求同一个 Application 按时间顺序进入下一阶段。晚于截至时间的事件会被排除，晚于截至时间的阶段退出会按尚未退出处理。可以使用 `--as-of-date YYYY-MM-DD` 临时覆盖配置中的截至日。
+
+分群结果通过 `minimum_cell_size` 抑制小样本，默认阈值为 5。`mapping_report.csv` 会列出已映射和未映射的原始阶段，但不包含候选人明细；`cohort_summary.csv` 会记录 cohort 窗口与成熟度。
 
 配置采用 JSON-compatible YAML，无需安装额外 Python 包。字段映射文件只是起点，使用真实 ATS 导出前必须确认字段与阶段映射。
 
