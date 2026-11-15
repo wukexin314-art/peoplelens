@@ -1,0 +1,6 @@
+severity,check,count,detail
+error,invalid_count,0,Rows excluded because count is not a non-negative integer.
+error,invalid_effective_month,0,Rows excluded because the effective month is invalid.
+info,outside_period,3718,Rows excluded by the requested effective-month window.
+warning,blank_category,0,Included rows whose action category was reported as Unknown.
+warning,blank_segment,0,Included rows with an Unknown configured segment value.

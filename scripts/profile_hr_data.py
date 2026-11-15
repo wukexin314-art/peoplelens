@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Profile HR data without printing raw cell values.
 
-Supports CSV, TSV, and XLSX. XLSX support requires openpyxl. The output is an
-aggregate JSON report containing schema, missingness, duplicate-key counts,
-date-parse issues, and likely sensitive columns.
+Supports CSV, TSV, XLSX, and Parquet. XLSX support requires openpyxl; Parquet
+support requires pyarrow. The output is an aggregate JSON report containing
+schema, missingness, duplicate-key counts, date-parse issues, and likely
+sensitive columns.
 """
 
 from __future__ import annotations
@@ -37,7 +38,7 @@ SENSITIVE_ATTRIBUTE_PATTERNS = {
     "religion": r"religion|faith",
     "family_or_marital": r"marital|family_?status|pregnan",
     "sexual_orientation": r"sexual_?orientation",
-    "compensation": r"salary|compensation|bonus|pay_?rate|wage",
+    "compensation": r"salary|compensation|bonus|income|annualized.*pay|basic_?pay|base_?pay|hourly_?rate|daily_?rate|monthly_?rate|pay_?rate|wage|salary_?hike",
     "performance_or_discipline": r"performance|rating|disciplin|warning",
     "free_text": r"comment|note|feedback|reason|remark|description",
 }
@@ -128,6 +129,7 @@ def parse_date(value: Any) -> bool:
         "%Y-%m-%d",
         "%Y/%m/%d",
         "%Y.%m.%d",
+        "%Y%m",
         "%m/%d/%Y",
         "%d/%m/%Y",
         "%Y-%m-%d %H:%M:%S",
@@ -168,6 +170,132 @@ def rectangularize(rows: Iterable[list[Any]], width: int) -> list[list[Any]]:
     return result
 
 
+def build_report(
+    headers: list[str],
+    columns: list[dict[str, Any]],
+    row_count: int,
+    source: dict[str, Any],
+    duplicate_headers: list[str],
+    id_check: dict[str, Any] | None,
+) -> dict[str, Any]:
+    high_missing = [
+        item["column"]
+        for item in columns
+        if item["missing_percent"] is not None and item["missing_percent"] >= 30
+    ]
+    all_empty = [item["column"] for item in columns if item["missing_count"] == row_count]
+    date_failures = {
+        item["column"]: item["date_parse_failure_count"]
+        for item in columns
+        if item.get("date_parse_failure_count", 0) > 0
+    }
+    report: dict[str, Any] = {
+        "source": source,
+        "shape": {"rows": row_count, "columns": len(headers)},
+        "schema": headers,
+        "columns": columns,
+        "privacy_flags": {
+            "likely_direct_identifiers": detect_columns(headers, DIRECT_IDENTIFIER_PATTERNS),
+            "likely_sensitive_columns": detect_columns(headers, SENSITIVE_ATTRIBUTE_PATTERNS),
+            "note": "Header-based detection is heuristic; review before sharing or publishing.",
+        },
+        "quality_flags": {
+            "duplicate_headers": duplicate_headers,
+            "all_empty_columns": all_empty,
+            "columns_at_least_30_percent_missing": high_missing,
+            "date_parse_failures": date_failures,
+        },
+    }
+    if id_check:
+        report["id_check"] = id_check
+    return report
+
+
+def profile_parquet(path: Path, id_column: str | None) -> dict[str, Any]:
+    try:
+        import pyarrow as pa
+        import pyarrow.compute as pc
+        import pyarrow.parquet as pq
+    except ImportError as exc:
+        raise RuntimeError(
+            "Parquet support requires pyarrow. Install requirements-parquet.txt."
+        ) from exc
+
+    parquet = pq.ParquetFile(path)
+    headers = list(parquet.schema_arrow.names)
+    duplicate_headers = sorted(name for name, count in Counter(headers).items() if count > 1)
+    lookup = {header.lower(): header for header in headers}
+    exact_id_header = lookup.get(id_column.lower()) if id_column else None
+    if id_column and exact_id_header is None:
+        raise ValueError(f"ID column {id_column!r} not found")
+
+    missing_counts = [0] * len(headers)
+    date_failure_counts = [0] * len(headers)
+    date_indexes = {index for index, header in enumerate(headers) if DATE_NAME_RE.search(header)}
+    id_index = headers.index(exact_id_header) if exact_id_header else None
+    seen_ids: set[str] = set()
+    duplicate_id_count = 0
+    blank_id_count = 0
+    row_count = 0
+
+    for batch in parquet.iter_batches(batch_size=65536):
+        row_count += batch.num_rows
+        for index, field in enumerate(batch.schema):
+            values = batch.column(index)
+            missing = values.null_count
+            if pa.types.is_string(field.type) or pa.types.is_large_string(field.type):
+                blank_mask = pc.equal(pc.utf8_trim_whitespace(values), "")
+                missing += int(pc.sum(pc.fill_null(blank_mask, False)).as_py() or 0)
+            missing_counts[index] += missing
+
+            if index in date_indexes:
+                date_failure_counts[index] += sum(
+                    not parse_date(value)
+                    for value in values.to_pylist()
+                    if value is not None and str(value).strip()
+                )
+            if index == id_index:
+                for value in values.to_pylist():
+                    text = "" if value is None else str(value).strip()
+                    if not text:
+                        blank_id_count += 1
+                    elif text in seen_ids:
+                        duplicate_id_count += 1
+                    else:
+                        seen_ids.add(text)
+
+    columns = []
+    for index, header in enumerate(headers):
+        item: dict[str, Any] = {
+            "column": header,
+            "missing_count": missing_counts[index],
+            "missing_percent": round((missing_counts[index] / row_count * 100), 1) if row_count else None,
+        }
+        if index in date_indexes:
+            item["date_parse_failure_count"] = date_failure_counts[index]
+        columns.append(item)
+
+    id_check = None
+    if exact_id_header:
+        id_check = {
+            "column": exact_id_header,
+            "blank_count": blank_id_count,
+            "duplicate_row_count": duplicate_id_count,
+        }
+    return build_report(
+        headers,
+        columns,
+        row_count,
+        {
+            "file_name": path.name,
+            "format": "parquet",
+            "row_groups": parquet.metadata.num_row_groups,
+        },
+        duplicate_headers,
+        id_check,
+    )
+
+
 def profile(
     path: Path,
     sheet: str | None,
@@ -176,6 +304,8 @@ def profile(
     delimiter: str | None,
 ) -> dict[str, Any]:
     suffix = path.suffix.lower()
+    if suffix == ".parquet":
+        return profile_parquet(path, id_column)
     if suffix in {".csv", ".tsv", ".txt"}:
         raw_rows, source_detail = read_delimited(path, delimiter)
         source_kind = "delimited"
@@ -187,7 +317,7 @@ def profile(
     elif suffix == ".xls":
         raise RuntimeError("Legacy .xls is not supported. Save it as .xlsx or CSV first.")
     else:
-        raise RuntimeError("Supported formats: CSV, TSV, TXT, and XLSX")
+        raise RuntimeError("Supported formats: CSV, TSV, TXT, XLSX, and Parquet")
 
     if not raw_rows:
         raise ValueError("The input contains no rows")
@@ -233,52 +363,31 @@ def profile(
         blank_id_count = row_count - len(ids)
         duplicate_id_count = sum(count - 1 for count in Counter(ids).values() if count > 1)
 
-    high_missing = [
-        item["column"]
-        for item in columns
-        if item["missing_percent"] is not None and item["missing_percent"] >= 30
-    ]
-    all_empty = [item["column"] for item in columns if item["missing_count"] == row_count]
-    date_failures = {
-        item["column"]: item["date_parse_failure_count"]
-        for item in columns
-        if item.get("date_parse_failure_count", 0) > 0
-    }
-
-    report: dict[str, Any] = {
-        "source": {
+    id_check = None
+    if exact_id_header:
+        id_check = {
+            "column": exact_id_header,
+            "blank_count": blank_id_count,
+            "duplicate_row_count": duplicate_id_count,
+        }
+    return build_report(
+        headers,
+        columns,
+        row_count,
+        {
             "file_name": path.name,
             "format": source_kind,
             **source_metadata,
             "header_row": header_index + 1,
         },
-        "shape": {"rows": row_count, "columns": width},
-        "schema": headers,
-        "columns": columns,
-        "privacy_flags": {
-            "likely_direct_identifiers": detect_columns(headers, DIRECT_IDENTIFIER_PATTERNS),
-            "likely_sensitive_columns": detect_columns(headers, SENSITIVE_ATTRIBUTE_PATTERNS),
-            "note": "Header-based detection is heuristic; review before sharing or publishing.",
-        },
-        "quality_flags": {
-            "duplicate_headers": duplicate_headers,
-            "all_empty_columns": all_empty,
-            "columns_at_least_30_percent_missing": high_missing,
-            "date_parse_failures": date_failures,
-        },
-    }
-    if exact_id_header:
-        report["id_check"] = {
-            "column": exact_id_header,
-            "blank_count": blank_id_count,
-            "duplicate_row_count": duplicate_id_count,
-        }
-    return report
+        duplicate_headers,
+        id_check,
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("path", type=Path, help="CSV, TSV, TXT, or XLSX file")
+    parser.add_argument("path", type=Path, help="CSV, TSV, TXT, XLSX, or Parquet file")
     parser.add_argument("--sheet", help="XLSX sheet name; defaults to the active sheet")
     parser.add_argument("--header-row", type=int, help="1-based header row; defaults to auto-detection")
     parser.add_argument("--id-column", help="Column to check for blank and duplicate IDs")

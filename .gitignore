@@ -5,9 +5,11 @@ __pycache__/
 *.xls
 *.csv
 *.tsv
+*.parquet
 outputs/
 reports/
 
 !assets/*.csv
 !examples/recruiting-funnel/applications.csv
 !examples/recruiting-funnel/output/*.csv
+!examples/public-data-validation/opm-workforce-flow/expected/*.csv

@@ -9,9 +9,10 @@ Turn HR data into an auditable, decision-ready analysis. Preserve the user's bus
 
 ## Route the request
 
-- For dataset inspection or field mapping, read [references/data-contract.md](references/data-contract.md). Run `scripts/profile_hr_data.py` when a local CSV, TSV, or XLSX needs a privacy-preserving structural audit.
+- For dataset inspection or field mapping, read [references/data-contract.md](references/data-contract.md). Run `scripts/profile_hr_data.py` when a local CSV, TSV, XLSX, or Parquet file needs a privacy-preserving structural audit.
 - For KPI calculation, cohort design, or metric review, read [references/metrics.md](references/metrics.md).
 - For recruiting funnel, stage conversion, stage aging, drop-off, or time-in-stage analysis, also read [references/recruiting-funnel.md](references/recruiting-funnel.md). When the input is a CSV with one row per application-stage event, use `scripts/analyze_recruiting_funnel.py` with an explicit config and mapping.
+- For OPM Federal Workforce Data accessions, separations, net action flow, or category mix, read [references/workforce-flow.md](references/workforce-flow.md) and use `scripts/analyze_opm_workforce_flow.py`. Do not call net action flow headcount growth or turnover without a compatible headcount denominator.
 - For dashboards, monthly reports, charts, findings, or executive summaries, read [references/reporting.md](references/reporting.md).
 - For row-level data, demographic cuts, small cohorts, or publication outside the organization, read [references/privacy.md](references/privacy.md).
 
@@ -19,7 +20,7 @@ Use only the references relevant to the request. For an end-to-end recruiting an
 
 The metric catalog is a starting point, not a closed list. When the user requests a metric that is not documented, define it with the same metric contract, confirm or surface material assumptions, and add it to the output metric dictionary. Prefer the user's established policy over a generic formula.
 
-Use the executable funnel workflow only when stage history is available. A current-status snapshot can support backlog analysis but cannot reconstruct historical conversion or time in stage. Keep generated aggregate outputs separate from source data and review `data_quality.csv`, `mapping_report.csv`, and `cohort_summary.csv` before interpreting results. Preserve the default minimum cell size of 5 unless the user's governing policy requires a different threshold.
+Use the executable funnel workflow only when stage history is available. A current-status snapshot can support backlog analysis but cannot reconstruct historical conversion or time in stage. Keep generated aggregate outputs separate from source data and review the generated quality and cohort diagnostics before interpreting results. Preserve the default minimum cell size of 5 unless the user's governing policy requires a different threshold.
 
 ## Work from a metric contract
 

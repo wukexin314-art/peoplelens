@@ -57,9 +57,27 @@ python3 scripts/analyze_recruiting_funnel.py \
 ```bash
 python3 scripts/profile_hr_data.py sample.csv --id-column employee_id
 python3 scripts/profile_hr_data.py workbook.xlsx --sheet "Employees" --id-column worker_id
+python3 scripts/profile_hr_data.py workforce.parquet --id-column employee_id
 ```
 
-CSV/TSV 只需要 Python 标准库；读取 XLSX 需要 `openpyxl`。
+CSV/TSV 只需要 Python 标准库；读取 XLSX 需要 `openpyxl`。读取 Parquet 需要安装 `requirements-parquet.txt` 中的 `pyarrow`，并采用分批处理，不会一次性把大型文件全部载入内存。
+
+## OPM 员工流动分析
+
+PeopleLens 可以直接分析 OPM Federal Workforce Data 的版本化入职与离职 Parquet 文件：
+
+```bash
+python3 -m pip install -r requirements-parquet.txt
+python3 scripts/analyze_opm_workforce_flow.py \
+  --accessions accessions_202608_1.parquet \
+  --separations separations_202608_1.parquet \
+  --start-month 2026-08 \
+  --end-month 2026-08 \
+  --group-by department \
+  --output-dir /tmp/peoplelens-opm-output
+```
+
+输出包括按月人员行动流、入职和离职类别构成、经过小样本抑制的部门结果、数据质量检查、分析摘要和运行清单。净人员行动流不会被误标成 Headcount Growth 或 Turnover。可复现的来源、版本与预期结果见[公开数据验证目录](examples/public-data-validation/README.md)。
 
 ## 隐私
 

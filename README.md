@@ -61,9 +61,27 @@ The included profiler inspects schema, missingness, duplicate IDs, date parsing,
 ```bash
 python3 scripts/profile_hr_data.py sample.csv --id-column employee_id
 python3 scripts/profile_hr_data.py workbook.xlsx --sheet "Employees" --id-column worker_id
+python3 scripts/profile_hr_data.py workforce.parquet --id-column employee_id
 ```
 
-CSV and TSV use only the Python standard library. XLSX support requires `openpyxl`.
+CSV and TSV use only the Python standard library. XLSX support requires `openpyxl`; Parquet support requires `pyarrow` from `requirements-parquet.txt`. Parquet files are processed in batches rather than loaded fully into memory.
+
+## OPM workforce flow
+
+PeopleLens can analyze versioned OPM Federal Workforce Data accessions and separations files:
+
+```bash
+python3 -m pip install -r requirements-parquet.txt
+python3 scripts/analyze_opm_workforce_flow.py \
+  --accessions accessions_202608_1.parquet \
+  --separations separations_202608_1.parquet \
+  --start-month 2026-08 \
+  --end-month 2026-08 \
+  --group-by department \
+  --output-dir /tmp/peoplelens-opm-output
+```
+
+The analyzer produces monthly action flow, accession and separation category mix, privacy-suppressed segment results, data-quality checks, a concise summary, and a run manifest. Net action flow is deliberately not labeled headcount growth or turnover. See [the public-data validation pack](examples/public-data-validation/README.md).
 
 ## Repository structure
 
@@ -73,17 +91,19 @@ CSV and TSV use only the Python standard library. XLSX support requires `openpyx
 |-- agents/openai.yaml
 |-- scripts/
 |   |-- profile_hr_data.py
-|   `-- analyze_recruiting_funnel.py
+|   |-- analyze_recruiting_funnel.py
+|   `-- analyze_opm_workforce_flow.py
 |-- configs/
 |   |-- recruiting-funnel.example.yaml
 |   `-- mappings/
-|-- examples/recruiting-funnel/
-|   |-- applications.csv
-|   `-- output/
+|-- examples/
+|   |-- recruiting-funnel/
+|   `-- public-data-validation/
 |-- references/
 |   |-- data-contract.md
 |   |-- metrics.md
 |   |-- recruiting-funnel.md
+|   |-- workforce-flow.md
 |   |-- privacy.md
 |   `-- reporting.md
 `-- assets/
@@ -91,9 +111,10 @@ CSV and TSV use only the Python standard library. XLSX support requires `openpyx
     `-- metric-dictionary-template.csv
 ```
 
-Run the standard-library test with:
+Run the test suite with:
 
 ```bash
+python3 -m pip install -r requirements-parquet.txt
 python3 -m unittest discover -s tests
 ```
 
