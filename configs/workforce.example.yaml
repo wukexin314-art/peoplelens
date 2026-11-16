@@ -1,0 +1,20 @@
+{
+  "as_of_date": "2026-03-31",
+  "period_start": "2026-01-01",
+  "period_end": "2026-03-31",
+  "early_attrition_days": 60,
+  "minimum_cell_size": 5,
+  "default_fte": 1.0,
+  "segments": ["business_unit", "employment_type"],
+  "voluntary_separation_values": ["Voluntary", "Resignation"],
+  "involuntary_separation_values": ["Involuntary", "Termination"],
+  "columns": {
+    "employee_id": "employee_id",
+    "hire_date": "hire_date",
+    "separation_date": "separation_date",
+    "separation_type": "separation_type",
+    "business_unit": "business_unit",
+    "employment_type": "employment_type",
+    "fte": "fte"
+  }
+}

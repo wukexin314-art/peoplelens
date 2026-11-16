@@ -14,8 +14,10 @@ import datetime as dt
 import json
 import math
 import re
+import tempfile
 import sys
 from collections import Counter, defaultdict
+from functools import wraps
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -33,6 +35,26 @@ OUTPUT_FILES = (
     "analysis_summary.md",
     "run_manifest.json",
 )
+
+
+def staged_outputs(function):
+    @wraps(function)
+    def wrapper(input_path: Path, settings: dict[str, Any], output_dir: Path, force: bool = False):
+        existing = [name for name in OUTPUT_FILES if (output_dir / name).exists()]
+        if existing and not force:
+            raise FileExistsError(
+                f"Output files already exist: {', '.join(existing)}. Use --force to replace them."
+            )
+        output_dir.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix=f".{output_dir.name}-", dir=output_dir.parent) as directory:
+            write_dir = Path(directory)
+            manifest = function(input_path, settings, write_dir, force)
+            output_dir.mkdir(parents=True, exist_ok=True)
+            for name in OUTPUT_FILES:
+                (write_dir / name).replace(output_dir / name)
+            return manifest
+
+    return wrapper
 
 
 def load_json_yaml(path: Path) -> dict[str, Any]:
@@ -164,6 +186,29 @@ def validate_settings(settings: dict[str, Any], headers: list[str]) -> None:
     followup = cohort.get("minimum_followup_days", 0)
     if not isinstance(followup, int) or followup < 0:
         raise ValueError("cohort.minimum_followup_days must be a non-negative integer")
+    for metric in settings.get("metrics", []):
+        if metric.get("type") != "stage_yield":
+            raise ValueError(f"Unsupported configured metric type: {metric.get('type')!r}")
+        if metric.get("numerator_stage") not in stage_order or metric.get("denominator_stage") not in stage_order:
+            raise ValueError(f"Metric {metric.get('name')!r} references an unknown stage")
+    attribution = settings.get("segment_attribution", "entry_stage")
+    rules = attribution.values() if isinstance(attribution, dict) else [attribution]
+    invalid_rules = sorted({str(rule) for rule in rules} - {"entry_stage", "first_known", "latest_known"})
+    if invalid_rules:
+        raise ValueError(f"Unsupported segment attribution rule: {', '.join(invalid_rules)}")
+
+
+def segment_value(events: list[dict[str, Any]], segment: str, rule: str, entry_stage: str) -> str:
+    candidates = events
+    if rule == "entry_stage":
+        candidates = [event for event in events if event["stage"] == entry_stage]
+    if rule == "latest_known":
+        candidates = reversed(candidates)
+    for event in candidates:
+        value = event["segments"].get(segment, "Unknown")
+        if value != "Unknown":
+            return value
+    return "Unknown"
 
 
 def band_label(age: int, cutoffs: list[int]) -> str:
@@ -188,6 +233,7 @@ def suppress_small_cell(denominator: int, numerator: int, minimum: int) -> bool:
     )
 
 
+@staged_outputs
 def analyze(
     input_path: Path,
     settings: dict[str, Any],
@@ -196,12 +242,7 @@ def analyze(
 ) -> dict[str, Any]:
     headers, source_rows = read_rows(input_path)
     validate_settings(settings, headers)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    existing = [name for name in OUTPUT_FILES if (output_dir / name).exists()]
-    if existing and not force:
-        raise FileExistsError(
-            f"Output files already exist: {', '.join(existing)}. Use --force to replace them."
-        )
+    write_dir = output_dir
 
     columns: dict[str, str] = settings["columns"]
     stage_order: list[str] = settings["stage_order"]
@@ -225,6 +266,7 @@ def analyze(
     if any(value < 0 for value in aging_bands):
         raise ValueError("aging_bands_days cannot contain negative values")
     minimum_cell_size = settings.get("minimum_cell_size", 5)
+    segment_attribution = settings.get("segment_attribution", "entry_stage")
     cohort = settings.get("cohort", {})
     cohort_start = parse_datetime(str(cohort.get("start_date", "")))
     cohort_end = parse_datetime(str(cohort.get("end_date", "")))
@@ -353,7 +395,23 @@ def analyze(
         entry = application_entry[application_id]
         events = [event for event in applications[application_id] if event["entered"] >= entry]
         latest = events[-1]
-        application_segments[application_id] = latest["segments"]
+        application_segments[application_id] = {}
+        for segment in settings.get("segments", []):
+            values = {
+                event["segments"].get(segment, "Unknown")
+                for event in events
+                if event["segments"].get(segment, "Unknown") != "Unknown"
+            }
+            if len(values) > 1:
+                issues["segment_value_changes"] += 1
+            rule = (
+                segment_attribution.get(segment, segment_attribution.get("default", "entry_stage"))
+                if isinstance(segment_attribution, dict)
+                else segment_attribution
+            )
+            application_segments[application_id][segment] = segment_value(
+                events, segment, rule, stage_order[0]
+            )
         terminal_events = [
             event for event in events if event["outcome"] in terminal_outcomes
         ]
@@ -419,7 +477,7 @@ def analyze(
             }
         )
     write_csv(
-        output_dir / "funnel_summary.csv",
+        write_dir / "funnel_summary.csv",
         list(funnel_rows[0]),
         funnel_rows,
     )
@@ -430,7 +488,7 @@ def analyze(
             stage_outcomes.items(), key=lambda item: (stage_index[item[0][0]], item[0][1])
         )
     ]
-    write_csv(output_dir / "stage_outcomes.csv", ["stage", "outcome", "application_count"], outcome_rows)
+    write_csv(write_dir / "stage_outcomes.csv", ["stage", "outcome", "application_count"], outcome_rows)
 
     band_order = [band_label(0 if index == 0 else aging_bands[index - 1] + 1, aging_bands) for index in range(len(aging_bands) + 1)]
     backlog_rows = [
@@ -439,7 +497,7 @@ def analyze(
         for band in band_order
         if backlog_aging.get((stage, band), 0)
     ]
-    write_csv(output_dir / "backlog_aging.csv", ["stage", "age_band", "application_count"], backlog_rows)
+    write_csv(write_dir / "backlog_aging.csv", ["stage", "age_band", "application_count"], backlog_rows)
 
     segment_rows = []
     for segment in settings.get("segments", []):
@@ -500,7 +558,7 @@ def analyze(
                 }
             )
     write_csv(
-        output_dir / "segment_summary.csv",
+        write_dir / "segment_summary.csv",
         [
             "segment",
             "value",
@@ -528,7 +586,7 @@ def analyze(
         }
     ]
     write_csv(
-        output_dir / "cohort_summary.csv",
+        write_dir / "cohort_summary.csv",
         list(cohort_rows[0]),
         cohort_rows,
     )
@@ -555,7 +613,7 @@ def analyze(
         for raw_stage, count in sorted(raw_stage_counts.items())
     )
     write_csv(
-        output_dir / "mapping_report.csv",
+        write_dir / "mapping_report.csv",
         ["mapping_type", "source_value", "canonical_value", "status", "event_count"],
         mapping_rows,
     )
@@ -563,13 +621,8 @@ def analyze(
     metric_rows = []
     metric_dictionary_rows = []
     for metric in settings.get("metrics", []):
-        if metric.get("type") != "stage_yield":
-            # shortcut: first release executes stage-yield metrics only; add types when a real use case needs them.
-            raise ValueError(f"Unsupported configured metric type: {metric.get('type')!r}")
         numerator_stage = metric.get("numerator_stage")
         denominator_stage = metric.get("denominator_stage")
-        if numerator_stage not in reached or denominator_stage not in reached:
-            raise ValueError(f"Metric {metric.get('name')!r} references an unknown stage")
         numerator = len(reached[numerator_stage])
         denominator = len(reached[denominator_stage])
         metric_rows.append(
@@ -593,12 +646,12 @@ def analyze(
             }
         )
     write_csv(
-        output_dir / "configured_metrics.csv",
+        write_dir / "configured_metrics.csv",
         ["metric_name", "value", "numerator", "denominator", "as_of_date"],
         metric_rows,
     )
     write_csv(
-        output_dir / "metric_dictionary.csv",
+        write_dir / "metric_dictionary.csv",
         [
             "metric_name",
             "metric_type",
@@ -628,8 +681,9 @@ def analyze(
         quality_row("info", "outside_cohort_window", issues["outside_cohort_window"], "Applications entered the funnel outside the configured cohort window."),
         quality_row("info", "immature_cohort", issues["immature_cohort"], "Applications lack the configured minimum follow-up and were excluded from mature-cohort rates."),
         quality_row("warning", "multiple_terminal_outcomes", issues["multiple_terminal_outcomes"], "Applications contain conflicting terminal outcomes."),
+        quality_row("info", "segment_value_changes", issues["segment_value_changes"], "Application-segment fields changed across events; the configured attribution rule selected one value."),
     ]
-    write_csv(output_dir / "data_quality.csv", ["severity", "check", "count", "detail"], quality_rows)
+    write_csv(write_dir / "data_quality.csv", ["severity", "check", "count", "detail"], quality_rows)
 
     adjacent_candidates = [
         (row["stage"], float(row["adjacent_conversion_rate"]))
@@ -662,7 +716,7 @@ def analyze(
             "Funnel rates use the mature entry cohort and require the same application to progress in chronological order. Backlog uses all eligible cohort applications as of the configured timestamp. Review `data_quality.csv` before interpreting results.",
         ]
     )
-    (output_dir / "analysis_summary.md").write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
+    (write_dir / "analysis_summary.md").write_text("\n".join(summary_lines) + "\n", encoding="utf-8")
 
     manifest = {
         "source_file": input_path.name,
@@ -674,11 +728,12 @@ def analyze(
         "mature_cohort_applications": len(mature_applications),
         "minimum_followup_days": minimum_followup_days,
         "minimum_cell_size": minimum_cell_size,
+        "segment_attribution": segment_attribution,
         "stage_order": stage_order,
         "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
         "output_files": list(OUTPUT_FILES),
     }
-    (output_dir / "run_manifest.json").write_text(
+    (write_dir / "run_manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     return manifest
@@ -695,8 +750,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
-    args = build_parser().parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     try:
         if not args.input.is_file():
             raise FileNotFoundError(f"Input file not found: {args.input}")

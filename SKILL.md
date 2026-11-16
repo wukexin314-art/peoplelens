@@ -11,12 +11,15 @@ Turn HR data into an auditable, decision-ready analysis. Preserve the user's bus
 
 - For dataset inspection or field mapping, read [references/data-contract.md](references/data-contract.md). Run `scripts/profile_hr_data.py` when a local CSV, TSV, XLSX, or Parquet file needs a privacy-preserving structural audit.
 - For KPI calculation, cohort design, or metric review, read [references/metrics.md](references/metrics.md).
+- For headcount, hires, separations, turnover, FTE, or early-retention analysis from employee-spell data, read [references/workforce-analysis.md](references/workforce-analysis.md) and use `scripts/analyze_workforce.py`.
 - For recruiting funnel, stage conversion, stage aging, drop-off, or time-in-stage analysis, also read [references/recruiting-funnel.md](references/recruiting-funnel.md). When the input is a CSV with one row per application-stage event, use `scripts/analyze_recruiting_funnel.py` with an explicit config and mapping.
 - For OPM Federal Workforce Data accessions, separations, net action flow, or category mix, read [references/workforce-flow.md](references/workforce-flow.md) and use `scripts/analyze_opm_workforce_flow.py`. Do not call net action flow headcount growth or turnover without a compatible headcount denominator.
 - For dashboards, monthly reports, charts, findings, or executive summaries, read [references/reporting.md](references/reporting.md).
 - For row-level data, demographic cuts, small cohorts, or publication outside the organization, read [references/privacy.md](references/privacy.md).
 
 Use only the references relevant to the request. For an end-to-end recruiting and workforce report, read all relevant references.
+
+Prefer `scripts/peoplelens.py` as the unified executable entry point. Use its `adapt-greenhouse` command only for Greenhouse Analytics exports based on the Application stage changes subject, and its `report` command to turn aggregate funnel or workforce outputs into a self-contained HTML report.
 
 The metric catalog is a starting point, not a closed list. When the user requests a metric that is not documented, define it with the same metric contract, confirm or surface material assumptions, and add it to the output metric dictionary. Prefer the user's established policy over a generic formula.
 

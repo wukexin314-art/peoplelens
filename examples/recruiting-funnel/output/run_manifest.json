@@ -8,6 +8,10 @@
   "mature_cohort_applications": 12,
   "minimum_followup_days": 0,
   "minimum_cell_size": 5,
+  "segment_attribution": {
+    "default": "entry_stage",
+    "recruiter": "latest_known"
+  },
   "stage_order": [
     "applied",
     "screened",
@@ -17,7 +21,7 @@
     "accepted",
     "started"
   ],
-  "generated_at_utc": "2026-11-15T00:59:21.266696+00:00",
+  "generated_at_utc": "2026-11-15T05:56:27.500441+00:00",
   "output_files": [
     "funnel_summary.csv",
     "stage_outcomes.csv",

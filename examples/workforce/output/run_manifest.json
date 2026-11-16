@@ -1,0 +1,25 @@
+{
+  "input_file": "employee-spells.csv",
+  "input_grain": "employment_spell",
+  "source_rows": 12,
+  "valid_employment_spells": 12,
+  "period_start": "2026-01-01",
+  "period_end": "2026-03-31",
+  "as_of_date": "2026-03-31",
+  "segments": [
+    "business_unit",
+    "employment_type"
+  ],
+  "minimum_cell_size": 5,
+  "generated_at_utc": "2026-11-15T05:56:27.992024+00:00",
+  "output_files": [
+    "workforce_metrics.csv",
+    "segment_summary.csv",
+    "separation_summary.csv",
+    "cohort_summary.csv",
+    "data_quality.csv",
+    "metric_dictionary.csv",
+    "analysis_summary.md",
+    "run_manifest.json"
+  ]
+}

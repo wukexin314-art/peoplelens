@@ -17,7 +17,13 @@ Use a mapping under `configs/mappings/` as a starting point and adapt it to the 
 
 The analyzer writes aggregate funnel, outcome, aging, segment, cohort, mapping-diagnostic, configured-metric, metric-dictionary, quality, summary, and run-manifest outputs. Review `data_quality.csv`, `mapping_report.csv`, and `cohort_summary.csv` before using the metrics. It excludes rows with blank application keys, unmapped stages, invalid stage-entry timestamps, or events after the as-of timestamp and reports the excluded counts.
 
+For a Greenhouse Analytics export based on the [**Application stage changes** subject](https://support.greenhouse.io/hc/en-us/articles/40130069504667-Analytics-field-glossary), normalize the file first with `python3 scripts/peoplelens.py adapt-greenhouse INPUT.csv --output CANONICAL.csv`. The adapter recognizes the documented application-stage name, entered-at, and exited-at fields plus common application, department, source, and recruiter labels. Use `--column canonical=source_header` for custom labels. Confirm the resulting stage mapping against the organization's interview plan. Do not use a current-pipeline report as event history: it can infer skipped stages and cannot reliably reconstruct backward movement.
+
+The normalized CSV is still row-level recruiting data. Keep it in an approved local location, apply the organization's retention policy, and publish only the aggregate analyzer outputs.
+
 Configure `cohort.start_date`, `cohort.end_date`, and `cohort.minimum_followup_days` for entry-cohort analysis. Funnel rates use only mature applications entering at the first configured stage. Backlog uses all eligible cohort applications as of the configured timestamp. Use `minimum_cell_size` (default `5`) to suppress small segment denominators, numerators, and complementary cells.
+
+Configure `segment_attribution` as `entry_stage`, `first_known`, or `latest_known`, either globally or per segment with a `default` rule. Prefer `entry_stage` for source and originating business-unit attribution; use `latest_known` only for fields such as current ownership when that interpretation is intended. The quality report counts applications whose segment values changed across events.
 
 Use ISO dates and timestamps. Offset-aware timestamps are normalized to UTC. Ambiguous dates such as `03/04/2026` are rejected instead of silently assuming a regional format.
 

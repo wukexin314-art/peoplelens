@@ -396,8 +396,8 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
-    args = build_parser().parse_args()
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
     try:
         if not args.path.is_file():
             raise FileNotFoundError(f"File not found: {args.path}")

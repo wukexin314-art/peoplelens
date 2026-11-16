@@ -2,21 +2,18 @@
 
 [English](README.md)
 
-PeopleLens 是一个面向 Codex 的通用 HR Analytics 技能包，用于把招聘和员工数据整理成口径清楚、可复核、保护隐私的分析与报告。
+PeopleLens 是一个面向 Codex 的 HR Analytics 技能包，用于把招聘和员工数据整理成口径清楚、可复核、保护隐私的聚合分析与报告。
 
-## 能做什么
+## 当前可直接运行的能力
 
-- Headcount 与员工流动分析
-- 招聘目标、完成率与时间进度
-- 招聘漏斗转化、阶段流失、阶段耗时与积压
-- 职位 Aging、Time to Fill、Time to Hire 与招聘 SLA
-- 招聘来源、内推趋势和 Offer 状态
-- Turnover、60 天早期离职与试用期留存
-- 内部流动、晋升、人员结构、FTE 与编制差异
-- 按部门、职级、来源和 Recruiter 分析
-- ATS 导出与 Headcount Tracker 对账
-- 月报、看板、指标字典和变更日志
-- 数据质量、敏感字段与小样本检查
+- CSV、TSV、XLSX 和 Parquet 结构体检，不打印原始单元格值
+- 成熟 cohort 口径的招聘漏斗、流失、耗时、Aging、积压和分群
+- Employment-spell 口径的 Headcount、入职、离职、增长、近似 Turnover、FTE 和 N 天留存
+- OPM 入职、离职、类别构成与净人员行动流
+- Greenhouse Analytics 阶段变更 CSV 标准化
+- 自包含 HTML 报告、指标字典、质量检查、小样本抑制和运行清单
+
+该技能还提供职位、招聘计划、内部流动、晋升、工作簿对账和周期报告的方法指导。这些属于引导式分析，目前不是独立的自动化模块，结果取决于用户提供的数据和业务定义。
 
 该技能只用于聚合分析，不会为候选人或员工打分，也不会代替人工做录用、解雇、晋升、薪酬或纪律决定。
 
@@ -29,6 +26,12 @@ PeopleLens 是一个面向 Codex 的通用 HR Analytics 技能包，用于把招
 - “按招聘 cohort 分析从申请到入职的漏斗转化、流失和阶段耗时。”
 - “对账 ATS 导出与 Headcount Tracker，并生成变更日志。”
 - “生成包含指标定义和数据质量说明的月度招聘与留存报告。”
+
+所有确定性工作流可以从统一入口运行：
+
+```bash
+python3 scripts/peoplelens.py --help
+```
 
 ## 可执行招聘漏斗
 
@@ -78,6 +81,39 @@ python3 scripts/analyze_opm_workforce_flow.py \
 ```
 
 输出包括按月人员行动流、入职和离职类别构成、经过小样本抑制的部门结果、数据质量检查、分析摘要和运行清单。净人员行动流不会被误标成 Headcount Growth 或 Turnover。可复现的来源、版本与预期结果见[公开数据验证目录](examples/public-data-validation/README.md)。
+
+## 可执行员工分析
+
+对于每行一个 Employment Spell 的 CSV，可以计算期初和期末人数、期间入职与离职、人数增长、近似 Turnover、期末 FTE、离职类型以及成熟 cohort 的早期离职与留存：
+
+```bash
+python3 scripts/peoplelens.py workforce \
+  examples/workforce/employee-spells.csv \
+  --config configs/workforce.example.yaml \
+  --output-dir /tmp/peoplelens-workforce
+```
+
+合成示例见 [workforce example](examples/workforce/README.md)。重新入职应作为新的 Employment Spell；使用期初和期末人数近似平均人数时，输出会明确标注限制。
+
+## Greenhouse 适配器与 HTML 报告
+
+Greenhouse Analytics 中基于 **Application stage changes** subject 的 CSV 可以先转换成 PeopleLens 标准事件历史：
+
+```bash
+python3 scripts/peoplelens.py adapt-greenhouse greenhouse-stage-changes.csv \
+  --output canonical-stage-events.csv
+```
+
+阶段名称会保持原样，必须根据组织自己的 Interview Plan 建立映射。Current-pipeline 快照不会被当作完整阶段历史。
+
+转换后的 CSV 仍然是行级招聘数据，可能包含 Application ID、Recruiter 姓名和其他内部字段。应保存在获批的本地位置，只发布聚合结果。
+
+招聘漏斗或员工分析输出目录可以进一步生成一个不依赖外部资源的聚合 HTML 报告：
+
+```bash
+python3 scripts/peoplelens.py report /tmp/peoplelens-workforce \
+  --output /tmp/peoplelens-workforce.html
+```
 
 ## 隐私
 

@@ -4,21 +4,18 @@ A privacy-aware Codex skill for recruiting and workforce analytics.
 
 [简体中文](README.zh-CN.md)
 
-It turns recurring HR workflows into a consistent analysis method: inspect and reconcile trackers, define metrics before calculating them, analyze hiring and workforce outcomes, and produce decision-ready dashboards or reports with an audit trail.
+It turns recurring HR workflows into a consistent analysis method: inspect data, define metrics before calculating them, analyze hiring and workforce outcomes, and produce decision-ready aggregate reports with an audit trail.
 
-## What it covers
+## What is executable today
 
-- Headcount and workforce movement
-- Hiring targets and completion pacing
-- Recruiting funnel conversion, drop-off, stage aging, and backlog
-- Requisition aging, time to fill, time to hire, and recruiting SLA
-- Source-of-hire and referral trends
-- Offer and requisition status normalization
-- Turnover, 60-day early attrition, and probation retention
-- Internal mobility, promotions, workforce mix, FTE, and plan variance
-- Business-unit, level, source, and recruiter breakdowns
-- Workbook reconciliation with before/after change logs
-- Data-quality, privacy, and small-cell checks
+- Structural profiling for CSV, TSV, XLSX, and Parquet without printing raw values
+- Cohort-safe recruiting funnel conversion, drop-off, duration, aging, backlog, and segments
+- Employment-spell headcount, hires, separations, growth, approximate turnover, FTE, and N-day retention
+- OPM accessions, separations, category mix, and net personnel-action flow
+- Greenhouse Analytics stage-change CSV normalization
+- Self-contained HTML reports, metric dictionaries, quality checks, privacy suppression, and run manifests
+
+The skill also provides governed methods for requisitions, hiring plans, mobility, promotions, workbook reconciliation, and recurring reports. Those workflows are guided analyses rather than dedicated executable modules; their result depends on the supplied data and the user's business definitions.
 
 The skill is designed for aggregate analysis. It does **not** rank candidates or employees and does not make individual employment decisions.
 
@@ -33,6 +30,12 @@ Place this folder in a location your Codex setup uses for skills, then invoke `$
 - “Build a monthly hiring and retention report with definitions and QA notes.”
 
 The skill can also be selected automatically for relevant HR analytics requests.
+
+Use the unified command-line entry point for deterministic workflows:
+
+```bash
+python3 scripts/peoplelens.py --help
+```
 
 ## Executable recruiting funnel
 
@@ -83,6 +86,39 @@ python3 scripts/analyze_opm_workforce_flow.py \
 
 The analyzer produces monthly action flow, accession and separation category mix, privacy-suppressed segment results, data-quality checks, a concise summary, and a run manifest. Net action flow is deliberately not labeled headcount growth or turnover. See [the public-data validation pack](examples/public-data-validation/README.md).
 
+## Executable workforce analysis
+
+For one row per employment spell, calculate opening and closing headcount, period hires and separations, headcount growth, approximate turnover, closing FTE, separation mix, and mature-cohort early attrition and retention:
+
+```bash
+python3 scripts/peoplelens.py workforce \
+  examples/workforce/employee-spells.csv \
+  --config configs/workforce.example.yaml \
+  --output-dir /tmp/peoplelens-workforce
+```
+
+See the [synthetic workforce example](examples/workforce/README.md). The analyzer treats a rehire as a new employment spell and clearly labels the opening/closing average-headcount approximation.
+
+## Greenhouse adapter and HTML report
+
+Greenhouse Analytics exports based on the **Application stage changes** subject can be normalized to PeopleLens event history before funnel analysis:
+
+```bash
+python3 scripts/peoplelens.py adapt-greenhouse greenhouse-stage-changes.csv \
+  --output canonical-stage-events.csv
+```
+
+Stage names remain raw and must be mapped to the organization's actual interview plan. Current-pipeline snapshots are intentionally not accepted as a substitute for stage history.
+
+The normalized CSV remains row-level recruiting data and can contain application IDs, recruiter names, and other internal fields. Keep it in an approved local location and publish only aggregate outputs.
+
+Render any recruiting-funnel or workforce output directory as a self-contained aggregate HTML report:
+
+```bash
+python3 scripts/peoplelens.py report /tmp/peoplelens-workforce \
+  --output /tmp/peoplelens-workforce.html
+```
+
 ## Repository structure
 
 ```text
@@ -90,19 +126,25 @@ The analyzer produces monthly action flow, accession and separation category mix
 |-- SKILL.md
 |-- agents/openai.yaml
 |-- scripts/
+|   |-- peoplelens.py
 |   |-- profile_hr_data.py
+|   |-- adapt_greenhouse.py
 |   |-- analyze_recruiting_funnel.py
-|   `-- analyze_opm_workforce_flow.py
+|   |-- analyze_workforce.py
+|   |-- analyze_opm_workforce_flow.py
+|   `-- render_report.py
 |-- configs/
 |   |-- recruiting-funnel.example.yaml
 |   `-- mappings/
 |-- examples/
 |   |-- recruiting-funnel/
+|   |-- workforce/
 |   `-- public-data-validation/
 |-- references/
 |   |-- data-contract.md
 |   |-- metrics.md
 |   |-- recruiting-funnel.md
+|   |-- workforce-analysis.md
 |   |-- workforce-flow.md
 |   |-- privacy.md
 |   `-- reporting.md

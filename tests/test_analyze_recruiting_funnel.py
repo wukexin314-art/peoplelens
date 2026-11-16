@@ -4,6 +4,7 @@ import csv
 import importlib.util
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 
@@ -210,6 +211,62 @@ class RecruitingFunnelTest(unittest.TestCase):
         }
         self.assertEqual(funnel["applied"]["reached_applications"], "1")
         self.assertEqual(funnel["started"]["reached_applications"], "1")
+
+    def test_invalid_metric_config_writes_no_partial_outputs(self) -> None:
+        settings = self.settings()
+        settings["metrics"] = [{"name": "bad", "type": "not_supported"}]
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            with self.assertRaisesRegex(ValueError, "Unsupported configured metric type"):
+                MODULE.analyze(
+                    ROOT / "examples" / "recruiting-funnel" / "applications.csv",
+                    settings,
+                    output,
+                )
+            self.assertFalse(output.exists())
+
+    def test_failed_forced_run_preserves_previous_outputs(self) -> None:
+        settings = self.settings()
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            output.mkdir()
+            previous = output / "funnel_summary.csv"
+            previous.write_text("previous successful run\n", encoding="utf-8")
+            original_write = MODULE.write_csv
+            calls = 0
+
+            def fail_after_first_file(*args, **kwargs):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise OSError("simulated write failure")
+                return original_write(*args, **kwargs)
+
+            with mock.patch.object(MODULE, "write_csv", side_effect=fail_after_first_file):
+                with self.assertRaisesRegex(OSError, "simulated write failure"):
+                    MODULE.analyze(
+                        ROOT / "examples" / "recruiting-funnel" / "applications.csv",
+                        settings,
+                        output,
+                        force=True,
+                    )
+            self.assertEqual(previous.read_text(encoding="utf-8"), "previous successful run\n")
+            self.assertEqual([path.name for path in output.iterdir()], ["funnel_summary.csv"])
+
+    def test_segment_attribution_defaults_to_entry_stage(self) -> None:
+        settings = self.settings()
+        settings["cohort"] = {"minimum_followup_days": 0}
+        settings["segments"] = ["source"]
+        settings["minimum_cell_size"] = 1
+        rows = [
+            {"application_id": "A1", "stage": "Applied", "stage_entered_at": "2026-01-01", "source": "Referral"},
+            {"application_id": "A1", "stage": "Started", "stage_entered_at": "2026-01-10", "source": "Corrected Source"},
+        ]
+        _, output = self.run_rows(rows, settings)
+        segments = self.read_rows(output / "segment_summary.csv")
+        self.assertEqual(segments[0]["value"], "Referral")
+        quality = {row["check"]: int(row["count"]) for row in self.read_rows(output / "data_quality.csv")}
+        self.assertEqual(quality["segment_value_changes"], 1)
 
 
 if __name__ == "__main__":

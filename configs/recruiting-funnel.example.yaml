@@ -34,6 +34,10 @@
   },
   "aging_bands_days": [7, 14, 30],
   "segments": ["business_unit", "source"],
+  "segment_attribution": {
+    "default": "entry_stage",
+    "recruiter": "latest_known"
+  },
   "metrics": [
     {
       "name": "application_to_start_yield",

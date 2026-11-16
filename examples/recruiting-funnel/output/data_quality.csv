@@ -15,3 +15,4 @@ info,stage_exit_after_as_of,0,Stage exits after the as-of timestamp were treated
 info,outside_cohort_window,0,Applications entered the funnel outside the configured cohort window.
 info,immature_cohort,0,Applications lack the configured minimum follow-up and were excluded from mature-cohort rates.
 warning,multiple_terminal_outcomes,0,Applications contain conflicting terminal outcomes.
+info,segment_value_changes,0,Application-segment fields changed across events; the configured attribution rule selected one value.
