@@ -54,7 +54,7 @@ def protected_outcomes(rows: list[dict[str, str]], minimum: int) -> list[dict[st
         if any(0 < int(row.get("application_count") or 0) < minimum for row in group):
             result.append({"stage": stage, "outcome": "detail protected", "application_count": "", "suppressed": "true"})
         else:
-            result.extend(dict(row, suppressed="false") for row in group)
+            result.extend(dict(row, suppressed=row.get("suppressed", "false")) for row in group)
     return result
 
 

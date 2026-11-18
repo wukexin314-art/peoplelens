@@ -17,7 +17,7 @@ The input grain is one row per application-stage event. The committed output sho
 
 - `funnel_summary.csv`: stage volume, adjacent conversion, cumulative yield, terminal drop-off, backlog, median duration, and P75 duration;
 - `stage_outcomes.csv`: terminal outcomes by stage;
-- `backlog_aging.csv`: current active pipeline by stage and aging band;
+- `backlog_aging.csv`: current active pipeline by stage and aging band (in both files, a stage with any cell below `minimum_cell_size` collapses to one `detail protected` row, because stage totals are public in `funnel_summary.csv`);
 - `segment_summary.csv`: application-to-start yield by configured segments;
 - `cohort_summary.csv`: configured entry window, minimum follow-up, and mature/immature population counts;
 - `mapping_report.csv`: source-column checks and mapped or unmapped source-stage counts without candidate-level values;

@@ -1,6 +1,5 @@
-stage,outcome,application_count
-screened,candidate_withdrew,1
-screened,rejected,1
-assessed,rejected,1
-interviewed,rejected,1
-offered,offer_declined,1
+stage,outcome,application_count,suppressed,suppression_reason,minimum_cell_size
+screened,detail protected,,true,small_cell,5
+assessed,detail protected,,true,small_cell,5
+interviewed,detail protected,,true,small_cell,5
+offered,detail protected,,true,small_cell,5

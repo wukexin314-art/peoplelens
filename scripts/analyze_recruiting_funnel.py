@@ -233,6 +233,18 @@ def suppress_small_cell(denominator: int, numerator: int, minimum: int) -> bool:
     )
 
 
+def protect_stage_detail(rows: list[dict[str, Any]], detail_field: str, minimum: int) -> list[dict[str, Any]]:
+    # Stage totals are published in funnel_summary.csv, so any small cell hides that stage's whole breakdown.
+    result: list[dict[str, Any]] = []
+    for stage in dict.fromkeys(row["stage"] for row in rows):
+        group = [row for row in rows if row["stage"] == stage]
+        if any(0 < row["application_count"] < minimum for row in group):
+            result.append({"stage": stage, detail_field: "detail protected", "application_count": "", "suppressed": "true", "suppression_reason": "small_cell", "minimum_cell_size": minimum})
+        else:
+            result.extend(dict(row, suppressed="false", suppression_reason="", minimum_cell_size=minimum) for row in group)
+    return result
+
+
 @staged_outputs
 def analyze(
     input_path: Path,
@@ -488,7 +500,7 @@ def analyze(
             stage_outcomes.items(), key=lambda item: (stage_index[item[0][0]], item[0][1])
         )
     ]
-    write_csv(write_dir / "stage_outcomes.csv", ["stage", "outcome", "application_count"], outcome_rows)
+    write_csv(write_dir / "stage_outcomes.csv", ["stage", "outcome", "application_count", "suppressed", "suppression_reason", "minimum_cell_size"], protect_stage_detail(outcome_rows, "outcome", minimum_cell_size))
 
     band_order = [band_label(0 if index == 0 else aging_bands[index - 1] + 1, aging_bands) for index in range(len(aging_bands) + 1)]
     backlog_rows = [
@@ -497,7 +509,7 @@ def analyze(
         for band in band_order
         if backlog_aging.get((stage, band), 0)
     ]
-    write_csv(write_dir / "backlog_aging.csv", ["stage", "age_band", "application_count"], backlog_rows)
+    write_csv(write_dir / "backlog_aging.csv", ["stage", "age_band", "application_count", "suppressed", "suppression_reason", "minimum_cell_size"], protect_stage_detail(backlog_rows, "age_band", minimum_cell_size))
 
     segment_rows = []
     for segment in settings.get("segments", []):

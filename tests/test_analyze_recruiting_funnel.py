@@ -79,6 +79,22 @@ class RecruitingFunnelTest(unittest.TestCase):
             segments = self.read_rows(output / "segment_summary.csv")
             self.assertTrue(all(row["suppressed"] == "true" for row in segments))
             self.assertTrue(all(row["application_count"] == "" for row in segments))
+            for name, detail in (("stage_outcomes.csv", "outcome"), ("backlog_aging.csv", "age_band")):
+                rows = self.read_rows(output / name)
+                self.assertTrue(rows)
+                self.assertTrue(all(row[detail] == "detail protected" and row["application_count"] == "" for row in rows))
+
+    def test_stage_detail_suppression_hides_whole_stage(self) -> None:
+        rows = [
+            {"stage": "screened", "outcome": "rejected", "application_count": 7},
+            {"stage": "screened", "outcome": "candidate_withdrew", "application_count": 2},
+            {"stage": "offered", "outcome": "offer_declined", "application_count": 6},
+        ]
+        result = MODULE.protect_stage_detail(rows, "outcome", 5)
+        self.assertEqual(
+            [(row["stage"], row["outcome"], row["application_count"], row["suppressed"]) for row in result],
+            [("screened", "detail protected", "", "true"), ("offered", "offer_declined", 6, "false")],
+        )
 
     def test_conversion_uses_same_applications_and_reports_mapping_gaps(self) -> None:
         settings = self.settings()
