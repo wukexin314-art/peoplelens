@@ -142,7 +142,9 @@ def render_funnel(directory: Path) -> tuple[str, str, str, str]:
     bottleneck = min(adjacent, key=lambda row: number(row["adjacent_conversion_rate"])) if adjacent else None
     bottleneck_n = int(bottleneck["reached_applications"]) if bottleneck else 0
     small_note = f" · n={bottleneck_n}, directional" if bottleneck and bottleneck_n < DIRECTIONAL_SAMPLE_SIZE else ""
-    longest = max(rows, key=lambda row: number(row.get("median_time_in_stage_days"))) if rows else None
+    # The stage before the final start stage measures the wait until the start date (notice period), not process delay.
+    process_rows, pre_start = (rows[:-2], rows[-2]) if len(rows) > 2 else (rows, None)
+    longest = max(process_rows, key=lambda row: number(row.get("median_time_in_stage_days"))) if process_rows else None
 
     cards = "".join(
         [
@@ -180,7 +182,11 @@ def render_funnel(directory: Path) -> tuple[str, str, str, str]:
         )
     if longest and longest.get("median_time_in_stage_days"):
         insight_items.append(
-            f"<li><span>Longest median stage</span><strong>{esc(label(longest['stage']))} · {esc(longest['median_time_in_stage_days'])} days</strong></li>"
+            f"<li><span>Longest median process stage</span><strong>{esc(label(longest['stage']))} · {esc(longest['median_time_in_stage_days'])} days</strong></li>"
+        )
+    if pre_start and pre_start.get("median_time_in_stage_days"):
+        insight_items.append(
+            f"<li><span>Wait to start (notice period, not process delay)</span><strong>{esc(label(pre_start['stage']))} · {esc(pre_start['median_time_in_stage_days'])} days median</strong></li>"
         )
     insight_items.append(f"<li><span>End-to-end yield</span><strong>{yield_rate:.1%} of mature applications started</strong></li>")
     insights = f"<ul class=insight-list>{''.join(insight_items)}</ul>"
