@@ -1,0 +1,14 @@
+metric_name,value,numerator,denominator,period_start,period_end,as_of_date
+opening_headcount,8,8,,2026-01-01,2026-03-31,2026-03-31
+closing_headcount,9,9,,2026-01-01,2026-03-31,2026-03-31
+period_hires,4,4,,2026-01-01,2026-03-31,2026-03-31
+period_separations,3,3,,2026-01-01,2026-03-31,2026-03-31
+net_headcount_change,1,1,,2026-01-01,2026-03-31,2026-03-31
+headcount_growth_rate,0.1250,1,8,2026-01-01,2026-03-31,2026-03-31
+average_headcount_approximation,8.50,17,2,2026-01-01,2026-03-31,2026-03-31
+turnover_rate,0.3529,3,8.5,2026-01-01,2026-03-31,2026-03-31
+voluntary_turnover_rate,0.2353,2,8.5,2026-01-01,2026-03-31,2026-03-31
+involuntary_turnover_rate,0.1176,1,8.5,2026-01-01,2026-03-31,2026-03-31
+closing_fte,8.10,,,2026-01-01,2026-03-31,2026-03-31
+early_attrition_60_day_rate,0.5000,1,2,2026-01-01,2026-03-31,2026-03-31
+retention_60_day_rate,0.5000,1,2,2026-01-01,2026-03-31,2026-03-31

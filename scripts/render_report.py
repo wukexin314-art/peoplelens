@@ -46,17 +46,16 @@ def label(value: str) -> str:
     return value.replace("_", " ").title()
 
 
-def protected_counts(rows: list[dict[str, str]], count_field: str, minimum: int) -> list[dict[str, str]]:
-    protected = [dict(row, suppressed="true" if 0 < int(row.get(count_field, "0")) < minimum else "false") for row in rows]
-    hidden = [row for row in protected if row["suppressed"] == "true"]
-    if len(hidden) == 1 and len(protected) > 1:
-        visible = [row for row in protected if row["suppressed"] == "false"]
-        if visible:
-            min(visible, key=lambda row: int(row.get(count_field, "0")))["suppressed"] = "true"
-    for row in protected:
-        if row["suppressed"] == "true":
-            row[count_field] = ""
-    return protected
+def protected_outcomes(rows: list[dict[str, str]], minimum: int) -> list[dict[str, str]]:
+    # Stage drop-off totals are public in the funnel table, so any small cell hides the whole stage breakdown.
+    result = []
+    for stage in dict.fromkeys(row["stage"] for row in rows):
+        group = [row for row in rows if row["stage"] == stage]
+        if any(0 < int(row.get("application_count") or 0) < minimum for row in group):
+            result.append({"stage": stage, "outcome": "detail protected", "application_count": "", "suppressed": "true"})
+        else:
+            result.extend(dict(row, suppressed="false") for row in group)
+    return result
 
 
 def table(headers: list[str], rows: list[dict[str, str]], title: str) -> str:
@@ -127,7 +126,7 @@ def render_funnel(directory: Path) -> tuple[str, str, str, str]:
     outcomes = optional_csv(directory, "stage_outcomes.csv")
     segment_rows = optional_csv(directory, "segment_summary.csv")
     minimum_cell_size = int(segment_rows[0].get("minimum_cell_size", "5")) if segment_rows else 5
-    outcomes = protected_counts(outcomes, "application_count", minimum_cell_size)
+    outcomes = protected_outcomes(outcomes, minimum_cell_size)
     first = rows[0] if rows else {}
     last = rows[-1] if rows else {}
     applications = int(first.get("reached_applications", "0"))

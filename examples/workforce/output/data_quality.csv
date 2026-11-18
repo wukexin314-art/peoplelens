@@ -1,0 +1,10 @@
+severity,check,count,detail
+error,missing_employee_id,0,Rows excluded because employee_id is blank.
+error,invalid_hire_date,0,Rows excluded because hire_date is invalid.
+error,invalid_separation_date,0,Rows excluded because separation_date is invalid.
+error,separation_before_hire,0,Rows excluded because separation precedes hire.
+warning,duplicate_employment_spell,0,Duplicate employee_id and hire_date spells were counted once.
+warning,future_hire_date,0,Rows with hire dates after as_of_date were excluded.
+warning,future_separation_date,0,Future separations were treated as not yet separated.
+warning,invalid_fte,0,Invalid FTE values were excluded from FTE totals.
+info,unclassified_separations,0,Period separations not mapped to configured voluntary or involuntary values.

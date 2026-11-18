@@ -1,0 +1,13 @@
+employee_id,hire_date,separation_date,separation_type,business_unit,employment_type,fte
+E001,2024-03-10,,,Operations,Regular,1.0
+E002,2024-06-15,,,Operations,Regular,1.0
+E003,2024-08-01,2026-02-15,Resignation,Operations,Regular,1.0
+E004,2025-01-20,,,Technology,Regular,1.0
+E005,2025-02-10,,,Technology,Part Time,0.6
+E006,2025-05-05,2026-03-01,Termination,Technology,Regular,1.0
+E007,2025-07-01,,,Operations,Regular,1.0
+E008,2025-09-18,,,Technology,Regular,1.0
+E009,2026-01-05,2026-02-10,Resignation,Operations,Regular,1.0
+E010,2026-01-12,,,Technology,Regular,1.0
+E011,2026-02-20,,,Operations,Part Time,0.5
+E012,2026-03-10,,,Technology,Regular,1.0

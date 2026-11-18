@@ -13,3 +13,5 @@ reports/
 !examples/recruiting-funnel/applications.csv
 !examples/recruiting-funnel/output/*.csv
 !examples/public-data-validation/opm-workforce-flow/expected/*.csv
+!examples/workforce/employee-spells.csv
+!examples/workforce/output/*.csv

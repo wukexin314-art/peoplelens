@@ -76,6 +76,20 @@ class CliAdapterReportTest(unittest.TestCase):
         self.assertIn("Protected", document)
         self.assertNotIn("<script", document)
 
+    def test_stage_outcomes_cannot_be_reconstructed_from_stage_totals(self) -> None:
+        rows = [
+            {"stage": "screened", "outcome": "rejected", "application_count": "7"},
+            {"stage": "screened", "outcome": "candidate_withdrew", "application_count": "2"},
+            {"stage": "assessed", "outcome": "rejected", "application_count": "1"},
+            {"stage": "offered", "outcome": "offer_declined", "application_count": "6"},
+        ]
+        result = REPORT.protected_outcomes(rows, 5)
+
+        self.assertEqual(
+            [(row["stage"], row["outcome"], row["application_count"]) for row in result],
+            [("screened", "detail protected", ""), ("assessed", "detail protected", ""), ("offered", "offer_declined", "6")],
+        )
+
     def test_workforce_report_is_rich_and_privacy_aware(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             report = Path(directory) / "workforce-report.html"

@@ -1,0 +1,3 @@
+separation_type,separation_count,share_of_separations,suppressed,suppression_reason,minimum_cell_size
+Resignation,,,true,small_cell,5
+Termination,,,true,small_cell,5

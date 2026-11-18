@@ -1,0 +1,5 @@
+segment,value,opening_headcount,closing_headcount,period_hires,period_separations,turnover_rate,suppressed,suppression_reason,minimum_cell_size
+business_unit,Operations,,,,,,true,small_cell,5
+business_unit,Technology,,,,,,true,small_cell,5
+employment_type,Part Time,,,,,,true,small_cell,5
+employment_type,Regular,,,,,,true,small_cell,5

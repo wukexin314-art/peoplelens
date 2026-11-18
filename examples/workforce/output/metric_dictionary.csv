@@ -1,0 +1,6 @@
+metric_name,definition,known_limitations
+opening_headcount,Distinct active employment spells on the day before period_start.,Employment spells require stable employee_id and hire_date.
+closing_headcount,Distinct active employment spells on period_end.,Effective-dated organizational movement is not inferred.
+turnover_rate,Period separations divided by the mean of opening and closing headcount.,Average headcount is an opening/closing approximation.
+early_attrition_60_day_rate,Mature period hires separating within 60 days divided by mature period hires.,Latest hires are excluded until the full milestone window is observable.
+closing_fte,Sum of configured FTE for active closing employment spells.,Blank FTE defaults to 1.00; invalid values contribute zero.
