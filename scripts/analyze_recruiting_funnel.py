@@ -233,6 +233,10 @@ def suppress_small_cell(denominator: int, numerator: int, minimum: int) -> bool:
     )
 
 
+# shortcut: fixed rule-of-thumb threshold, make it configurable if a team's policy differs.
+DIRECTIONAL_SAMPLE_SIZE = 30
+
+
 def protect_stage_detail(rows: list[dict[str, Any]], detail_field: str, minimum: int) -> list[dict[str, Any]]:
     # Stage totals are published in funnel_summary.csv, so any small cell hides that stage's whole breakdown.
     result: list[dict[str, Any]] = []
@@ -698,7 +702,7 @@ def analyze(
     write_csv(write_dir / "data_quality.csv", ["severity", "check", "count", "detail"], quality_rows)
 
     adjacent_candidates = [
-        (row["stage"], float(row["adjacent_conversion_rate"]))
+        (row["stage"], float(row["adjacent_conversion_rate"]), row["reached_applications"])
         for row in funnel_rows[:-1]
         if row["adjacent_conversion_rate"]
     ]
@@ -720,7 +724,8 @@ def analyze(
     ]
     if bottleneck:
         summary_lines.append(
-            f"- Lowest adjacent-stage conversion starts at `{bottleneck[0]}`: {bottleneck[1]:.1%}."
+            f"- Lowest adjacent-stage conversion starts at `{bottleneck[0]}`: {bottleneck[1]:.1%} (n={bottleneck[2]})."
+            + (f" Treat this as directional: fewer than {DIRECTIONAL_SAMPLE_SIZE} applications reached this stage." if bottleneck[2] < DIRECTIONAL_SAMPLE_SIZE else "")
         )
     summary_lines.extend(
         [

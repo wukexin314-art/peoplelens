@@ -71,6 +71,8 @@ class RecruitingFunnelTest(unittest.TestCase):
             self.assertEqual(funnel["applied"]["reached_applications"], "12")
             self.assertEqual(funnel["started"]["reached_applications"], "4")
             self.assertEqual(funnel["offered"]["adjacent_conversion_rate"], "0.6667")
+            summary = (output / "analysis_summary.md").read_text(encoding="utf-8")
+            self.assertIn("(n=6). Treat this as directional", summary)
 
             quality = self.read_rows(output / "data_quality.csv")
             self.assertFalse(

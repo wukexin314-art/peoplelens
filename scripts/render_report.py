@@ -46,6 +46,10 @@ def label(value: str) -> str:
     return value.replace("_", " ").title()
 
 
+# shortcut: fixed rule-of-thumb threshold, make it configurable if a team's policy differs.
+DIRECTIONAL_SAMPLE_SIZE = 30
+
+
 def protected_outcomes(rows: list[dict[str, str]], minimum: int) -> list[dict[str, str]]:
     # Stage drop-off totals are public in the funnel table, so any small cell hides the whole stage breakdown.
     result = []
@@ -136,6 +140,8 @@ def render_funnel(directory: Path) -> tuple[str, str, str, str]:
     maximum = max((int(row["reached_applications"]) for row in rows), default=1)
     adjacent = [row for row in rows if row.get("adjacent_conversion_rate")]
     bottleneck = min(adjacent, key=lambda row: number(row["adjacent_conversion_rate"])) if adjacent else None
+    bottleneck_n = int(bottleneck["reached_applications"]) if bottleneck else 0
+    small_note = f" · n={bottleneck_n}, directional" if bottleneck and bottleneck_n < DIRECTIONAL_SAMPLE_SIZE else ""
     longest = max(rows, key=lambda row: number(row.get("median_time_in_stage_days"))) if rows else None
 
     cards = "".join(
@@ -146,7 +152,7 @@ def render_funnel(directory: Path) -> tuple[str, str, str, str]:
             card(
                 "Primary bottleneck",
                 label(bottleneck["stage"]) if bottleneck else "N/A",
-                f"{number(bottleneck['adjacent_conversion_rate']):.1%} next-stage conversion" if bottleneck else "No comparable stages",
+                f"{number(bottleneck['adjacent_conversion_rate']):.1%} next-stage conversion{small_note}" if bottleneck else "No comparable stages",
             ),
         ]
     )
@@ -170,7 +176,7 @@ def render_funnel(directory: Path) -> tuple[str, str, str, str]:
     insight_items = []
     if bottleneck:
         insight_items.append(
-            f"<li><span>Bottleneck</span><strong>{esc(label(bottleneck['stage']))} converts at {number(bottleneck['adjacent_conversion_rate']):.1%}</strong></li>"
+            f"<li><span>Bottleneck</span><strong>{esc(label(bottleneck['stage']))} converts at {number(bottleneck['adjacent_conversion_rate']):.1%}{esc(small_note)}</strong></li>"
         )
     if longest and longest.get("median_time_in_stage_days"):
         insight_items.append(
@@ -190,8 +196,9 @@ def render_funnel(directory: Path) -> tuple[str, str, str, str]:
         cohort_note = f"Cohort {item.get('start_date') or 'open'} to {item.get('end_date') or 'open'} · {item.get('mature_applications', '0')} mature applications"
     scope = cohort_note or "Mature recruiting cohort"
     bottleneck_label = label(bottleneck["stage"]) if bottleneck else "the lowest-converting stage"
+    small_caveat = f" Only {bottleneck_n} applications reached this stage, so treat the ranking as directional." if small_note else ""
     content = (
-        f'<div class=decision-strip><span>Decision snapshot</span><p>The lowest adjacent conversion begins at <b>{esc(bottleneck_label)}</b>; review this transition while monitoring {backlog:,} active records.</p></div>'
+        f'<div class=decision-strip><span>Decision snapshot</span><p>The lowest adjacent conversion begins at <b>{esc(bottleneck_label)}</b>; review this transition while monitoring {backlog:,} active records.{esc(small_caveat)}</p></div>'
         f"<div class=metric-grid>{cards}</div>"
         + section("Candidate journey", "Funnel", "".join(journey), "Stage reach, speed, and active backlog")
         + f'<div class=two-col>{section("What stands out", "Interpretation", insights)}{section("Quality gate", "Trust", quality_panel(directory))}</div>'

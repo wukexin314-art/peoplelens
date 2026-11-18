@@ -74,6 +74,7 @@ class CliAdapterReportTest(unittest.TestCase):
         self.assertIn("Candidate journey", document)
         self.assertIn("Quality gate", document)
         self.assertIn("Protected", document)
+        self.assertIn("n=6, directional", document)
         self.assertNotIn("<script", document)
 
     def test_stage_outcomes_cannot_be_reconstructed_from_stage_totals(self) -> None:
